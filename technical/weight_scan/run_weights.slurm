@@ -55,7 +55,7 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/technical/weight_sca
 module load parallel-20170722
 
 
-cat weight_scan.sh | parallel -j 20
+#cat weight_scan.sh | parallel -j 20
 # Could also print the commands to a temp file and then cat them into parallel. Then Could 
 # do the science ones first, and glance as the backfill.
 ls *10yrs.db | xargs -I '{}' -P 20 glance_dir --db '{}'
