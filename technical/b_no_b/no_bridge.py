@@ -439,7 +439,7 @@ if __name__ == "__main__":
     fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
     file_end = 'v2.0_'
 
-    footprints_hp = combo_dust_fp(nside=nside, north_weights={})
+    footprints_hp = combo_dust_fp(nside=nside, north_weights={}, outer_bridge_width=0.)
     wfd_footprint = footprints_hp['r']*0
     wfd_footprint[np.where(footprints_hp['r'] == 1)] = 1
     repeat_night_weight = None

@@ -1,0 +1,4 @@
+glance_dir --db bridge_v2.0_10yrs.db
+glance_dir --db no_bridge_v2.0_10yrs.db
+scimaf_dir --db bridge_v2.0_10yrs.db
+scimaf_dir --db no_bridge_v2.0_10yrs.db
