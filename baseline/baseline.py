@@ -3,7 +3,7 @@ import matplotlib.pylab as plt
 import healpy as hp
 from rubin_sim.scheduler.modelObservatory import Model_observatory
 from rubin_sim.scheduler.schedulers import Core_scheduler, simple_filter_sched
-from rubin_sim.scheduler.utils import combo_dust_fp, Footprint
+from rubin_sim.scheduler.utils import combo_dust_fp, Footprint, Footprints, Step_slopes
 import rubin_sim.scheduler.basis_functions as bf
 from rubin_sim.scheduler.surveys import (Greedy_survey, generate_dd_surveys,
                                          Blob_survey)
@@ -15,10 +15,76 @@ import os
 import argparse
 
 
+def slice_wfd_area_quad(target_map, nslice=2):
+    """
+    Make a fancy double striped map
+    """
+    nslice2 = nslice * 2
+
+    wfd = target_map['r'] * 0
+    wfd_indices = np.where(target_map['r'] == 1)[0]
+    wfd[wfd_indices] = 1
+    wfd_accum = np.cumsum(wfd)
+    split_wfd_indices = np.floor(np.max(wfd_accum)/nslice2*(np.arange(nslice2)+1)).astype(int)
+    split_wfd_indices = split_wfd_indices.tolist()
+    split_wfd_indices = [0] + split_wfd_indices
+
+    return split_wfd_indices
+
+
+def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.27717639,
+                            nslice=2, scale=0.8, nside=32):
+
+    hp_footprints = fp_hp
+   
+    down = 1.-scale
+    up = nslice - down*(nslice-1)
+    start = [1., 1., 1.]
+    end = [1., 1., 1., 1., 1., 1.]
+    if nslice == 2:
+        rolling = [up, down, up, down, up, down]
+    elif nslice == 3:
+        rolling = [up, down, down, up, down, down]
+    elif nslice == 6:
+        rolling = [up, down, down, down, down, down]
+    all_slopes = [start + np.roll(rolling, i).tolist()+end for i in range(nslice)]
+
+    fp_non_wfd = Footprint(mjd_start, sun_RA_start=sun_RA_start)
+    rolling_footprints = []
+    for i in range(nslice):
+        step_func = Step_slopes(rise=all_slopes[i])
+        rolling_footprints.append(Footprint(mjd_start, sun_RA_start=sun_RA_start,
+                                            step_func=step_func))
+
+    split_wfd_indices = slice_wfd_area_quad(hp_footprints, nslice=nslice)
+    wfd = hp_footprints['r'] * 0
+    wfd_indx = np.where(hp_footprints['r'] == 1)[0]
+    non_wfd_indx = np.where(hp_footprints['r'] != 1)[0]
+    wfd[wfd_indx] = 1
+
+    roll = np.zeros(nslice)
+    roll[-1] = 1
+    for key in hp_footprints:
+        temp = hp_footprints[key] + 0
+        temp[wfd_indx] = 0
+        fp_non_wfd.set_footprint(key, temp)
+
+        for i in range(nslice):
+            temp = hp_footprints[key] + 0
+            temp[non_wfd_indx] = 0
+            for j in range(nslice*2):
+                indx = wfd_indx[split_wfd_indices[j]:split_wfd_indices[j+1]]
+                temp[indx] = temp[indx] * roll[(i+j) % nslice]
+            rolling_footprints[i].set_footprint(key, temp)
+
+    result = Footprints([fp_non_wfd] + rolling_footprints)
+    return result
+
+
 def gen_greedy_surveys(nside=32, nexp=2, exptime=30., filters=['r', 'i', 'z', 'y'],
                        camera_rot_limits=[-80., 80.],
                        shadow_minutes=60., max_alt=76., moon_distance=30., ignore_obs='DD',
-                       m5_weight=3., footprint_weight=0.3, slewtime_weight=3.,
+                       m5_weight=3., footprint_weight=0.75, slewtime_weight=3.,
                        stayfilter_weight=3., footprints=None):
     """
     Make a quick set of greedy surveys
@@ -96,7 +162,7 @@ def generate_blobs(nside, nexp=2, exptime=30., filter1s=['u', 'u', 'g', 'r', 'i'
                    camera_rot_limits=[-80., 80.], n_obs_template=3,
                    season=300., season_start_hour=-4., season_end_hour=2.,
                    shadow_minutes=60., max_alt=76., moon_distance=30., ignore_obs='DD',
-                   m5_weight=6., footprint_weight=0.6, slewtime_weight=3.,
+                   m5_weight=6., footprint_weight=1.5, slewtime_weight=3.,
                    stayfilter_weight=3., template_weight=12., footprints=None, u_nexp1=True):
     """
     Generate surveys that take observations in blobs.
@@ -243,7 +309,7 @@ def generate_twi_blobs(nside, nexp=2, exptime=30., filter1s=['r', 'i', 'z', 'y']
                        camera_rot_limits=[-80., 80.], n_obs_template=3,
                        season=300., season_start_hour=-4., season_end_hour=2.,
                        shadow_minutes=60., max_alt=76., moon_distance=30., ignore_obs='DD',
-                       m5_weight=6., footprint_weight=0.6, slewtime_weight=3.,
+                       m5_weight=6., footprint_weight=1.5, slewtime_weight=3.,
                        stayfilter_weight=3., template_weight=12., footprints=None, repeat_night_weight=None,
                        wfd_footprint=None):
     """
@@ -409,6 +475,8 @@ if __name__ == "__main__":
     parser.add_argument("--maxDither", type=float, default=0.7, help="Dither size for DDFs (deg)")
     parser.add_argument("--moon_illum_limit", type=float, default=40., help="illumination limit to remove u-band")
     parser.add_argument("--nexp", type=int, default=2)
+    parser.add_argument("--rolling_nslice", type=int, default=2)
+    parser.add_argument("--rolling_strength", type=float, default=0.9)
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -417,6 +485,8 @@ if __name__ == "__main__":
     max_dither = args.maxDither
     illum_limit = args.moon_illum_limit
     nexp = args.nexp
+    nslice = args.rolling_nslice
+    scale = args.rolling_strength
 
     nside = 32
     per_night = True  # Dither DDF per night
@@ -446,9 +516,10 @@ if __name__ == "__main__":
 
     observatory = Model_observatory(nside=nside)
     conditions = observatory.return_conditions()
-    footprints = Footprint(conditions.mjd_start, sun_RA_start=conditions.sun_RA_start, nside=nside)
-    for i, key in enumerate(footprints_hp):
-        footprints.footprints[i, :] = footprints_hp[key]
+
+    footprints = make_rolling_footprints(fp_hp=footprints_hp, mjd_start=conditions.mjd_start,
+                                         sun_RA_start=conditions.sun_RA_start, nslice=nslice, scale=scale,
+                                         nside=nside)
 
     # Set up the DDF surveys to dither
     u_detailer = detailers.Filter_nexp(filtername='u', nexp=1)
