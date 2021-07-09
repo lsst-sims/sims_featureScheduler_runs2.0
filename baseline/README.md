@@ -5,5 +5,3 @@ Updates from previous baselines:
 * Ideal pair time increased from 22 minutes to 33 minutes (outside of twiligt)
 * take pairs in twilight time (mixed filters, ideally spaced 15 minutes)
 * new footprint
-* increased footprint weight
-* MAF updated to use silicon rather than circle
