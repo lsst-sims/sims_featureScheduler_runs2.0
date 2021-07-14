@@ -54,5 +54,5 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/technical/desc_max
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-cat dec_max.sh | parallel -j 20
+cat desc_max.sh | parallel -j 20
 cat desc_max_maf.sh | parallel -j 20
