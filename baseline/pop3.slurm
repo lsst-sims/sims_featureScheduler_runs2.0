@@ -54,5 +54,5 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/baseline
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-makeLSSTobs --opsimDb baseline_v2.0_10yrs.db --orbitFile /usr/lusers/yoachim/rubin_sim_data/orbits/l7_5k.txt ; run_moving_calc --obsFile baseline_v2.0_10yrs__l7_5k_obs.txt --opsimDb baseline_v2.0_10yrs.db --orbitFile /usr/lusers/yoachim/rubin_sim_data/orbits/l7_5k.txt --outDir baseline_v2.0_10yrs_ss --opsimRun baseline_v2.0_10yrs --hMin 4 --hMax 12 --hStep 0.2 --hMark 8 --characterization outer --metadata TNO --startTime 60218 ; run_moving_fractions --workDir baseline_v2.0_10yrs_ss --metadata TNO --startTime 60218
+makeLSSTobs --opsimDb baseline_v2.0_10yrs.db --orbitFile /usr/lusers/yoachim/rubin_sim_data/orbits/mba_5k.txt ; run_moving_calc --obsFile baseline_v2.0_10yrs__mba_5k_obs.txt --opsimDb baseline_v2.0_10yrs.db --orbitFile /usr/lusers/yoachim/rubin_sim_data/orbits/mba_5k.txt --outDir baseline_v2.0_10yrs_ss --opsimRun baseline_v2.0_10yrs --hMin 16 --hMax 26 --hStep 0.2 --hMark 20 --characterization inner --metadata MBA --startTime 60218 ; run_moving_fractions --workDir baseline_v2.0_10yrs_ss --metadata MBA --startTime 60218
 
