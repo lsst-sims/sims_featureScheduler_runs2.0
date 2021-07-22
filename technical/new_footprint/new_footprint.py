@@ -283,15 +283,17 @@ class SurveyMap:
         return total, total_perfilter
 
 
-
-def slice_wfd_area_quad(target_map, nslice=2):
+def slice_wfd_area_quad(target_map, nslice=2, wfd_indx=None):
     """
     Make a fancy double striped map
     """
     nslice2 = nslice * 2
 
     wfd = target_map['r'] * 0
-    wfd_indices = np.where(target_map['r'] == 1)[0]
+    if wfd_indx is None:
+        wfd_indices = np.where(target_map['r'] == 1)[0]
+    else:
+        wfd_indices = wfd_indx
     wfd[wfd_indices] = 1
     wfd_accum = np.cumsum(wfd)
     split_wfd_indices = np.floor(np.max(wfd_accum)/nslice2*(np.arange(nslice2)+1)).astype(int)
@@ -302,7 +304,7 @@ def slice_wfd_area_quad(target_map, nslice=2):
 
 
 def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.27717639,
-                            nslice=2, scale=0.8, nside=32):
+                            nslice=2, scale=0.8, nside=32, wfd_indx=None):
 
     hp_footprints = fp_hp
    
@@ -325,11 +327,15 @@ def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.2771763
         rolling_footprints.append(Footprint(mjd_start, sun_RA_start=sun_RA_start,
                                             step_func=step_func))
 
-    split_wfd_indices = slice_wfd_area_quad(hp_footprints, nslice=nslice)
     wfd = hp_footprints['r'] * 0
-    wfd_indx = np.where(hp_footprints['r'] == 1)[0]
-    non_wfd_indx = np.where(hp_footprints['r'] != 1)[0]
+    if wfd_indx is None:
+        wfd_indx = np.where(hp_footprints['r'] == 1)[0]
+        non_wfd_indx = np.where(hp_footprints['r'] != 1)[0]
+
     wfd[wfd_indx] = 1
+    non_wfd_indx = np.where(wfd == 0)[0] 
+
+    split_wfd_indices = slice_wfd_area_quad(hp_footprints, nslice=nslice, wfd_indx=wfd_indx)
 
     roll = np.zeros(nslice)
     roll[-1] = 1
@@ -781,12 +787,15 @@ if __name__ == "__main__":
     sm = SurveyMap(nside=nside)
     sm.set_maps()
     final_tot, footprints_hp = sm.combine_maps()
-    normval = footprints_hp['r'].max()
+    wfd_footprint = footprints_hp['r']*0
+    # Bad bad magic number
+    wfd_footprint[np.where(np.round(final_tot) >= 891)] = 1
+    wfd_indx = np.where(wfd_footprint == 1)[0]
+
+    normval = footprints_hp['r'][np.where(np.round(final_tot) == 891)].max()
     for key in footprints_hp:
         footprints_hp[key] = footprints_hp[key]/normval
 
-    wfd_footprint = footprints_hp['r']*0
-    wfd_footprint[np.where(footprints_hp['r'] == 1)] = 1
     repeat_night_weight = None
 
     observatory = Model_observatory(nside=nside)
@@ -794,7 +803,7 @@ if __name__ == "__main__":
 
     footprints = make_rolling_footprints(fp_hp=footprints_hp, mjd_start=conditions.mjd_start,
                                          sun_RA_start=conditions.sun_RA_start, nslice=nslice, scale=scale,
-                                         nside=nside)
+                                         nside=nside, wfd_indx=wfd_indx)
 
     # Set up the DDF surveys to dither
     u_detailer = detailers.Filter_nexp(filtername='u', nexp=1)
