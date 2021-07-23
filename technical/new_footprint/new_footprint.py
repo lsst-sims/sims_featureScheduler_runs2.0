@@ -17,6 +17,9 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from rubin_sim import data as rs_data
 from rubin_sim.utils import _angularSeparation
+import rubin_sim.utils as rs_utils
+
+
 
 class SurveyMap:
     def __init__(self, nside=64, default_filter_balance=None):
@@ -42,9 +45,13 @@ class SurveyMap:
                                            'i': 0.22, 'z': 0.20, 'y': 0.20}
         else:
             self.default_filter_balance = self._normalize_filter_balance(default_filter_balance)
+        # These maps store the per-region information, on scales from 0-1
         self.maps = {}
         self.maps_perfilter = {}
+        # The nvis values store the max per-region number of visits, so regions can be added together
         self.nvis = {}
+        # Set a default self.dec_max = 12 deg here, but will be re-set/overriden when setting low-dust wfd
+        self.dec_max = 12
     
     def read_dustmap(self, dustmapFile=None):
         # Dustmap from rubin_sim_data  - this is basically just a data directory
@@ -71,72 +78,84 @@ class SurveyMap:
     # And after setting all of the regions, we take the max value (per filter?) in each part of the sky
     # The individual components are updated, so that we can still calculate survey fraction per part of the sky
     
-    def _set_exwfd(self, dust_limit=0.199, dec_min=-67, dec_max=12, 
-                   smoothing_cutoff=0.57, smoothing_beam=10,
-                   nvis_exwfd=825*1.08,
-                   exgal_filter_balance=None):
-        # Define extragalactic WFD between dec_min and dec_max with low dust extinction 
+    def _set_dustfree_wfd(self, dust_limit=0.199, dec_min=-65, dec_max=15, 
+                          smoothing_cutoff=0.45, smoothing_beam=10, 
+                          nvis_dustfree_wfd=825*1.08,
+                          dustfree_wfd_filter_balance=None, 
+                          adjust_halves=12):
+        # Define low dust extinction WFD between dec_min and dec_max (ish) with low dust extinction 
         # These dec and dust limits are used to define the other survey areas as well.
-        # This means setting each part of the footprint depends on having already set some previous pieces..
+        # We're also going to weight the footprint differently in the region around RA=0 
+        # compared to the region around RA=180, as the RA=0 half is more heavily subscribed (if adjust_halves True)
         self.dust_limit = dust_limit
         self.dec_min = dec_min
         self.dec_max = dec_max
-        if exgal_filter_balance is None:
-            self.exgal_filter_balance = self.default_filter_balance
+        if dustfree_wfd_filter_balance is None:
+            self.dustfree_wfd_filter_balance = self.default_filter_balance
         else:
-            self.exgal_filter_balance = self._normalize_filter_balance(exgal_filter_balance)
+            self.dustfree_wfd_filter_balance = self._normalize_filter_balance(dustfree_wfd_filter_balance)
         
         # Set the detailed dust boundary 
-        self.dust_exwfd = np.where((self.dec > self.dec_min) & (self.dec < self.dec_max) 
+        self.dustfree = np.where((self.dec > self.dec_min) & (self.dec < self.dec_max) 
                                    & (self.dustmap < self.dust_limit), 1, 0)
         # Set the smoothed dust boundary using the original dustmap and smoothing it with gaussian PSF
-        self.exwfd = np.where((self.dustmap < self.dust_limit), 1, 0)
-        self.exwfd = hp.smoothing(self.exwfd, fwhm=np.radians(smoothing_beam))
-        self.exwfd = np.where((self.dec > self.dec_min) & (self.dec < self.dec_max) 
-                              & (self.exwfd>smoothing_cutoff), 1, 0)
+        self.maps['dustfree'] = np.where((self.dustmap < self.dust_limit), 1, 0)
+        self.maps['dustfree'] = hp.smoothing(self.maps['dustfree'], fwhm=np.radians(smoothing_beam))
+        self.maps['dustfree'] = np.where((self.dec > self.dec_min) & (self.dec < self.dec_max)
+                                     & (self.maps['dustfree']>smoothing_cutoff), 1, 0)
+        
+        # Reset to downweight RA=0 and upweight RA=180 side by 
+        # reducing upper dec limit in one half, increasing lower dec limit in other half
+        if adjust_halves > 0:
+            self.maps['dustfree'] = np.where((self.gal_lat < 0) & (self.dec > dec_max - adjust_halves), 
+                                      0, self.maps['dustfree'])
+            # The lower dec limit doesn't really apply for the other 'half' of the low-dust WFD 
+            # as the dust-extinction cuts off the footprint in that area at about Dec=-50
+            # This is another reason that the dust-free region is oversubscribed.
 
         # Make per-filter maps for the footprint
-        self.exwfd_maps = {}
+        self.maps_perfilter['dustfree'] = {}
         for f in self.filterlist:
-            self.exwfd_maps[f] = self.exwfd * self.exgal_filter_balance[f]
-        # Make these easy to access
-        self.maps['exwfd'] = self.exwfd
-        self.maps_perfilter['exwfd'] = self.exwfd_maps
-        self.nvis['exwfd'] = nvis_exwfd
-
-    def _set_magellanic_clouds(self, lmc_radius=10, smc_radius=5, 
-                              nvis_mcs = 825,
-                              mcs_filter_balance=None):
+            self.maps_perfilter['dustfree'][f] = self.maps['dustfree'] * self.dustfree_wfd_filter_balance[f]
+        self.nvis['dustfree'] = nvis_dustfree_wfd
+        
+    def _set_circular_region(self, ra_center, dec_center, radius):
+        # find the healpixels that cover a circle of radius radius around ra/dec center (deg)
+        result = np.zeros(len(self.ra))
+        distance = rs_utils._angularSeparation(np.radians(ra_center), np.radians(dec_center),
+                                               np.radians(self.ra), np.radians(self.dec))
+        result[np.where(distance < np.radians(radius))] = 1
+        return result
+        
+    def _set_magellanic_clouds(self, lmc_radius=8, smc_radius=5, 
+                               nvis_mcs=825,
+                               mc_filter_balance=None):
         # Define the magellanic clouds region
-        if mcs_filter_balance is None:
+        if mc_filter_balance is None:
             self.mcs_filter_balance = self.default_filter_balance
         else:
-            self.mcs_filter_balance = self._normalize_filter_balance(mcs_filter_balance)
+            self.mcs_filter_balance = self._normalize_filter_balance(mc_filter_balance)
 
-        self.mcs = np.zeros(hp.nside2npix(self.nside))
+        self.maps['mcs'] = np.zeros(hp.nside2npix(self.nside))
         # Define the LMC center and size
-        lmc_ra = np.radians(80.893860)
-        lmc_dec = np.radians(-69.756126)
-        self.lmc_radius = np.radians(lmc_radius)
+        self.lmc_ra = 80.893860
+        self.lmc_dec = -69.756126
+        self.lmc_radius = lmc_radius
         # Define the SMC center and size
-        smc_ra = np.radians(13.186588)
-        smc_dec = np.radians(-72.828599)
-        self.smc_radius = np.radians(smc_radius)
+        self.smc_ra = 13.186588
+        self.smc_dec = -72.828599
+        self.smc_radius = smc_radius
         # Define the LMC pixels
-        dist_to_lmc = _angularSeparation(lmc_ra, lmc_dec, np.radians(self.ra), np.radians(self.dec))
-        lmc_pix = np.where(dist_to_lmc < self.lmc_radius)
-        self.mcs[lmc_pix] = 1
+        self.maps['mcs'] += self._set_circular_region(self.lmc_ra, self.lmc_dec, self.lmc_radius)
         # Define the SMC pixels
-        dist_to_smc = _angularSeparation(smc_ra, smc_dec, np.radians(self.ra), np.radians(self.dec))
-        smc_pix = np.where(dist_to_smc < self.smc_radius)
-        self.mcs[smc_pix] = 1
-        
+        self.maps['mcs'] += self._set_circular_region(self.smc_ra, self.smc_dec, self.smc_radius)
+        # We don't want to double-visit areas which may overlap
+        self.maps['mcs'] = np.where(self.maps['mcs'] > 1, 1, self.maps['mcs'])
+
         # Make per-filter maps for the footprint
-        self.mcs_maps = {}
+        self.maps_perfilter['mcs'] = {}
         for f in self.filterlist:
-            self.mcs_maps[f] = self.mcs * self.mcs_filter_balance[f]
-        self.maps['mcs'] = self.mcs
-        self.maps_perfilter['mcs'] = self.mcs_maps
+            self.maps_perfilter['mcs'][f] = self.maps['mcs'] * self.mcs_filter_balance[f]
         self.nvis['mcs'] = nvis_mcs
     
     def __set_bulge_diamond(self, center_width, end_width, gal_long1, gal_long2):
@@ -209,19 +228,17 @@ class SurveyMap:
         self.gp_bkgnd = self.gp_bkgnd - self.bulge_A - self.bulge_B
         
         # Add them together
-        self.gal = (self.gp_bkgnd * nvis_gal_min / nvis_gal_A 
+        self.maps['gal'] = (self.gp_bkgnd * nvis_gal_min / nvis_gal_A 
                    + self.bulge_B * nvis_gal_B / nvis_gal_A
                    + self.bulge_A)
         
         # Make per-filter maps for the footprint
-        self.gal_maps = {}
+        self.maps_perfilter['gal'] = {}
         for f in self.filterlist:
-            self.gal_maps[f] = self.gal * self.gal_filter_balance[f]
-        self.maps['gal'] = self.gal
-        self.maps_perfilter['gal'] = self.gal_maps
+            self.maps_perfilter['gal'][f] = self.maps['gal'] * self.gal_filter_balance[f]
         self.nvis['gal'] = nvis_gal_A
             
-    def _set_nes(self, eclat_min=-15, eclat_max=10, eclip_dec_min=-10, eclip_ra_max=180, 
+    def _set_nes(self, eclat_min=-10, eclat_max=10, eclip_dec_min=-10, eclip_ra_max=180, 
                  nvis_nes=400, nes_filter_balance=None):
         if nes_filter_balance is None:
             self.nes_filter_balance =  {'u': 0.0, 'g': 0.2, 'r': 0.3, 'i': 0.3, 'z': 0.2, 'y': 0.0}
@@ -233,55 +250,112 @@ class SurveyMap:
         self.eclip_dec_min = eclip_dec_min
         self.eclip_ra_max = eclip_ra_max
 
-        self.nes = np.where(((self.eclip_lat > self.eclat_min) | 
-                             ((self.dec > self.eclip_dec_min) & (self.ra < self.eclip_ra_max)))
-                             & (self.eclip_lat < self.eclat_max), 1, 0)
-        self.nes_maps = {}
+        self.maps['nes'] = np.where(((self.eclip_lat > self.eclat_min) | 
+                                 ((self.dec > self.eclip_dec_min) & (self.ra < self.eclip_ra_max)))
+                                 & (self.eclip_lat < self.eclat_max), 1, 0)
+        self.maps_perfilter['nes'] = {}
         for f in self.filterlist:
-            self.nes_maps[f] = self.nes * self.nes_filter_balance[f]
-        self.maps['nes'] = self.nes
-        self.maps_perfilter['nes'] = self.nes_maps
+            self.maps_perfilter['nes'][f] = self.maps['nes'] * self.nes_filter_balance[f]
         self.nvis['nes'] = nvis_nes
             
-    def _set_scp(self, nvis_scp=120, dec_max=12, scp_filter_balance=None):
+    def _set_scp(self, nvis_scp=120, dec_max=0, scp_filter_balance=None):
         if scp_filter_balance is None:
             self.scp_filter_balance = {'u': 0.17, 'g': 0.17, 'r': 0.17, 'i': 0.17, 'z': 0.17, 'y': 0.17}
         else:
             self.scp_filter_balance = self._normalize_filter_balance(scp_filter_balance)
         # Basically this is a fill-in so that we don't have any gaps below the max dec limit for the survey
         # I would expect most of this to be ignored
-        self.scp = np.where(self.dec < dec_max, 1, 0)
-        self.scp_maps = {}
+        self.maps['scp'] = np.where(self.dec < dec_max, 1, 0)
+        self.maps_perfilter['scp'] = {}
         for f in self.filterlist:
-            self.scp_maps[f] = self.scp * self.scp_filter_balance[f]
-        self.maps['scp'] = self.scp
-        self.maps_perfilter['scp'] = self.scp_maps
+            self.maps_perfilter['scp'][f] = self.maps['scp'] * self.scp_filter_balance[f]
         self.nvis['scp'] = nvis_scp
+        
+    def _set_ddf(self, nvis_ddf=18000, ddf_radius=1.8, ddf_filter_balance=None):
+        # These should not be set up for most footprint work with the scheduler, but are helpful
+        # for evaluating RA over or under subscription
+        if ddf_filter_balance is None:
+            # This is an estimate based on existing simulations
+            self.ddf_filter_balance = {'u': 0.06, 'g': 0.12, 'r': 0.23, 'i': 0.23, 'z': 0.13, 'y': 0.23}
+        else: 
+            self.ddf_filter_balance = self._normalize_filter_balance(ddf_filter_balance)
+        self.ddf_radius = ddf_radius
+        self.ddf_centers = rs_utils.ddf_locations()
+        self.maps['ddf'] = np.zeros(len(self.hpid))
+        for dd in self.ddf_centers:
+            self.maps['ddf'] += self._set_circular_region(self.ddf_centers[dd][0], 
+                                                          self.ddf_centers[dd][1], 
+                                                          self.ddf_radius)
+        self.maps['ddf'] = np.where(self.maps['ddf'] > 1, 1, self.maps['ddf'])
+        
+        self.maps_perfilter['ddf'] = {}
+        for f in self.filterlist:
+            self.maps_perfilter['ddf'][f] = self.maps['ddf'] * self.ddf_filter_balance[f]
+        self.nvis['ddf'] = nvis_ddf
     
-    def set_maps(self):
+    def set_maps(self, dustfree=True, mcs=True, gp=True, nes=True, scp=True, ddf=False):
+        # This sets each component with default values.
+        # Individual components could be set with non-default values by calling those methods - 
+        #  in general they are independent (just combined at the end).
+        # Each component has a 'map' (with values from 0-1) for the total visits in all filters
+        # and then a maps_per_filter (with values from 0-1) for the fraction of those visits
+        # which will happen in each filter. Each component also has a 'nvis' value (nvis at the map max value),
+        # which serves to weight each map to their final combined value in the footprint.
         self.read_dustmap()
-        self._set_exwfd()
-        self._set_magellanic_clouds()
-        self._set_galactic_plane()
-        self._set_nes()
-        self._set_scp()
+        if dustfree:
+            self._set_dustfree_wfd()
+        if mcs:
+            self._set_magellanic_clouds()
+        if gp:
+            self._set_galactic_plane()
+        if nes:
+            self._set_nes()
+        if scp:
+            self._set_scp()
+        if ddf:
+            self._set_ddf()
     
     def combine_maps(self):
-        map_order = ['exwfd', 'gal', 'mcs', 'nes', 'scp']
-
-        total_perfilter = {}
+        self.total_perfilter = {}
         for f in self.filterlist:
-            total_perfilter[f] = np.zeros(len(self.hpid), float)
-        for m in map_order:
-            if m in self.maps:
-                for f in self.filterlist:
-                    total_perfilter[f] = np.maximum(total_perfilter[f], 
-                                                    self.maps_perfilter[m][f] * self.nvis[m])
-        total = np.zeros(len(self.hpid), float)
+            self.total_perfilter[f] = np.zeros(len(self.hpid), float)
+        for m in self.maps:
+            if m == 'ddf':
+                continue # skip DDF 
+            for f in self.filterlist:
+                self.total_perfilter[f] = np.maximum(self.total_perfilter[f], 
+                                                     self.maps_perfilter[m][f] * self.nvis[m])
+        if 'ddf' in self.maps:
+            # Now add DDF on top of individual maps
+            for f in self.filterlist:
+                self.total_perfilter[f] += self.maps_perfilter['ddf'][f] * self.nvis['ddf']
+                
+        # Generate the total footprint using the combination of the per-filter values
+        self.total = np.zeros(len(self.hpid), float)
         for f in self.filterlist:
-            total += total_perfilter[f]
-        return total, total_perfilter
+            self.total += self.total_perfilter[f]
 
+    def return_maps(self):
+        self.combine_maps()
+        return self.total, self.total_perfilter
+
+    def normalize_for_sched(self):
+        footprint_r = {}
+        new_nside = 32
+        new_surveyfootprint = rs_utils.healbin(self.ra, self.dec, self.total, nside=new_nside, 
+                                      reduceFunc=np.max, dtype=float)
+
+        new_survey_maps = {}
+        for f in self.filterlist:
+            new_survey_maps[f] = rs_utils.healbin(self.ra, self.dec, self.total_perfilter[f], 
+                                         nside=new_nside, reduceFunc=np.max, dtype=float)
+    
+        norm = 1 / np.median(new_survey_maps['r'][np.where(new_survey_maps['r']>0)[0]])
+        for f in self.filterlist:
+            new_survey_maps[f] = new_survey_maps[f] * norm
+        return new_surveyfootprint, new_survey_maps
+    
+    
 
 def slice_wfd_area_quad(target_map, nslice=2, wfd_indx=None):
     """
@@ -786,7 +860,7 @@ if __name__ == "__main__":
 
     sm = SurveyMap(nside=nside)
     sm.set_maps()
-    final_tot, footprints_hp = sm.combine_maps()
+    final_tot, footprints_hp = sm.return_maps()
     wfd_footprint = footprints_hp['r']*0
     # Bad bad magic number
     wfd_footprint[np.where(np.round(final_tot) >= 891)] = 1
