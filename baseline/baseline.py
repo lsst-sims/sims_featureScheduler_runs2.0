@@ -128,7 +128,7 @@ class SurveyMap:
         return result
         
     def _set_magellanic_clouds(self, lmc_radius=8, smc_radius=5, 
-                               nvis_mcs=825,
+                               nvis_mcs=825*1.08,
                                mc_filter_balance=None):
         # Define the magellanic clouds region
         if mc_filter_balance is None:
@@ -204,7 +204,7 @@ class SurveyMap:
                             center_width_A=11, end_width_A=4, gal_long1_A=330, gal_long2_A=30, 
                            center_width_B=15, end_width_B=5, gal_long1_B=250, gal_long2_B=100,
                            gal_lat_width_max=23,
-                           nvis_gal_A=825, nvis_gal_B=300, nvis_gal_min=250, gal_filter_balance=None):
+                           nvis_gal_A=825*1.08, nvis_gal_B=300, nvis_gal_min=250, gal_filter_balance=None):
         if gal_filter_balance is None:
             self.gal_filter_balance = {'u': 0.04, 'g': 0.22, 'r': 0.24,
                                       'i': 0.24, 'z': 0.22, 'y': 0.05}
@@ -292,8 +292,21 @@ class SurveyMap:
         for f in self.filterlist:
             self.maps_perfilter['ddf'][f] = self.maps['ddf'] * self.ddf_filter_balance[f]
         self.nvis['ddf'] = nvis_ddf
+
+    def _trim_overlap(self):
+        """Make sure the dustfree WFD and the bulge do not overlap
+        """
+        bulge_total = self.maps_perfilter['gal']['r']*0
+        wfd_total = self.maps_perfilter['dustfree']['r']*0
+        for key in self.maps_perfilter['gal']:
+            bulge_total += self.maps_perfilter['gal'][key]
+            wfd_total += self.maps_perfilter['dustfree'][key]
+        bulge_priority = np.where(bulge_total > wfd_total)[0]
+        for key in self.maps_perfilter['gal']:
+            self.maps_perfilter['dustfree'][key][bulge_priority] = 0
+
     
-    def set_maps(self, dustfree=True, mcs=True, gp=True, nes=True, scp=True, ddf=False):
+    def set_maps(self, dustfree=True, mcs=True, gp=True, nes=True, scp=True, ddf=False, trim_overlap=True):
         # This sets each component with default values.
         # Individual components could be set with non-default values by calling those methods - 
         #  in general they are independent (just combined at the end).
@@ -314,6 +327,8 @@ class SurveyMap:
             self._set_scp()
         if ddf:
             self._set_ddf()
+        if trim_overlap:
+            self._trim_overlap()
     
     def combine_maps(self):
         self.total_perfilter = {}
