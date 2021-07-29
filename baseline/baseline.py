@@ -504,7 +504,7 @@ if __name__ == "__main__":
     wfd_footprint = sm.maps['dustfree']
     wfd_indx = np.where(wfd_footprint > 0)[0]
 
-    normval = footprints_hp['r'][np.where(np.round(final_tot) == 891)].max()
+    normval = footprints_hp['r'][wfd_indx].min()
     for key in footprints_hp:
         footprints_hp[key] = footprints_hp[key]/normval
 
