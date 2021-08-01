@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pylab as plt
 import healpy as hp
+import rubin_sim
 from rubin_sim.scheduler.modelObservatory import Model_observatory
 from rubin_sim.scheduler.schedulers import Core_scheduler, simple_filter_sched
 from rubin_sim.scheduler.utils import (Footprint, Footprints, Step_slopes,
@@ -465,6 +466,8 @@ if __name__ == "__main__":
     parser.add_argument("--nexp", type=int, default=2)
     parser.add_argument("--rolling_nslice", type=int, default=2)
     parser.add_argument("--rolling_strength", type=float, default=0.9)
+    parser.add_argument("--dbroot", type=str)
+    parser.add_argument('--filters', help="filter distribution (default: u 0.07 g 0.09 r 0.22 i 0.22 z 0.20 y 0.20)")
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -475,6 +478,8 @@ if __name__ == "__main__":
     nexp = args.nexp
     nslice = args.rolling_nslice
     scale = args.rolling_strength
+    filters = args.filters
+    dbroot = args.dbroot
 
     nside = 32
     per_night = True  # Dither DDF per night
@@ -494,10 +499,25 @@ if __name__ == "__main__":
     extra_info['file executed'] = os.path.realpath(__file__)
 
     # Use the filename of the script to name the output database
-    fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
+    if dbroot is None:
+        fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
+    else:
+        fileroot = dbroot + '_'
     file_end = 'v2.0_'
 
-    sm = Sky_area_generator(nside=nside)
+    if filters is None:
+        sm = Sky_area_generator(nside=nside,
+                                default_filter_balance={'u': 0.07, 'g': 0.09,
+                                                        'r': 0.22, 'i': 0.22,
+                                                        'z': 0.20, 'y': 0.20})
+    else:
+        filter_split = filters.split(" ")
+        filter_balance = {x:float(y) for x, y in zip(filter_split[::2], filter_split[1::2])}
+        if not np.isclose(1.0, np.sum([v for v in filter_balance.values()])):
+            raise ValueError('Make sure your filters sum to 1')
+        sm = Sky_area_generator(nside=nside,
+                                default_filter_balance=filter_balance)
+
     sm.set_maps()
     final_tot, footprints_hp = sm.return_maps()
     # Set the wfd, aka rolling, pixels
