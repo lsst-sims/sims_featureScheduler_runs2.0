@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pylab as plt
 import healpy as hp
-import rubin_sim
 from rubin_sim.scheduler.modelObservatory import Model_observatory
 from rubin_sim.scheduler.schedulers import Core_scheduler, simple_filter_sched
 from rubin_sim.scheduler.utils import (Footprint, Footprints, Step_slopes,
