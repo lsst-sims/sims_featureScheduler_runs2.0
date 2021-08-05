@@ -1,10 +1,12 @@
+#!/usr/bin/env python
+
 import numpy as np
 import matplotlib.pylab as plt
 import healpy as hp
 from rubin_sim.scheduler.modelObservatory import Model_observatory
 from rubin_sim.scheduler.schedulers import Core_scheduler, simple_filter_sched
 from rubin_sim.scheduler.utils import (Footprint, Footprints, Step_slopes,
-                                       slice_wfd_area_quad, Sky_area_generator)
+                                       slice_wfd_area_quad, Sky_area_generator, ra_dec_hp_map)
 import rubin_sim.scheduler.basis_functions as bf
 from rubin_sim.scheduler.surveys import (Greedy_survey, generate_dd_surveys,
                                          Blob_survey)
@@ -14,6 +16,37 @@ import sys
 import subprocess
 import os
 import argparse
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+
+
+def slice_quad_galactic_cut(target_map, nslice=2, wfd_indx=None):
+    """
+    Make the dec bands for galactic north and south independently
+    """
+
+    ra, dec = ra_dec_hp_map(nside=hp.npix2nside(target_map['r'].size))
+
+    coord = SkyCoord(ra=ra*u.rad, dec=dec*u.rad)
+    gal_lon, gal_lat = coord.galactic.l.deg, coord.galactic.b.deg
+
+    indx_north = np.intersect1d(np.where(gal_lat >= 0)[0], wfd_indx)
+    indx_south = np.intersect1d(np.where(gal_lat < 0)[0], wfd_indx)
+    
+    splits_north = slice_wfd_area_quad(target_map, nslice=nslice, wfd_indx=indx_north)
+    splits_south = slice_wfd_area_quad(target_map, nslice=nslice, wfd_indx=indx_south)
+
+    indx1 = []
+    for i in np.arange(1, nslice*2, 2):
+        indx1 += indx_north[splits_north[i-1]:splits_north[i]].tolist()
+        indx1 += indx_south[splits_south[i-1]:splits_south[i]].tolist()
+    
+    indx2 = []
+    for i in np.arange(2, nslice*2+1, 2):
+        indx2 += indx_north[splits_north[i-1]:splits_north[i]].tolist()
+        indx2 += indx_south[splits_south[i-1]:splits_south[i]].tolist()
+
+    return [indx1, indx2]
 
 
 def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.27717639,
@@ -48,21 +81,24 @@ def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.2771763
     wfd[wfd_indx] = 1
     non_wfd_indx = np.where(wfd == 0)[0] 
 
-    split_wfd_indices = slice_wfd_area_quad(hp_footprints, nslice=nslice, wfd_indx=wfd_indx)
+    split_wfd_indices = slice_quad_galactic_cut(hp_footprints, nslice=nslice, wfd_indx=wfd_indx)
 
-    roll = np.zeros(nslice)
-    roll[-1] = 1
     for key in hp_footprints:
         temp = hp_footprints[key] + 0
         temp[wfd_indx] = 0
         fp_non_wfd.set_footprint(key, temp)
 
         for i in range(nslice):
+            # make a copy of the current filter
             temp = hp_footprints[key] + 0
+            # Set the non-rolling area to zero
             temp[non_wfd_indx] = 0
-            for j in range(nslice*2):
-                indx = wfd_indx[split_wfd_indices[j]:split_wfd_indices[j+1]]
-                temp[indx] = temp[indx] * roll[(i+j) % nslice]
+            
+            indx = split_wfd_indices[i]
+            # invert the indices
+            ze = temp * 0
+            ze[indx] = 1
+            temp = temp * ze
             rolling_footprints[i].set_footprint(key, temp)
 
     result = Footprints([fp_non_wfd] + rolling_footprints)
@@ -465,6 +501,9 @@ if __name__ == "__main__":
     parser.add_argument("--nexp", type=int, default=2)
     parser.add_argument("--rolling_nslice", type=int, default=2)
     parser.add_argument("--rolling_strength", type=float, default=0.9)
+    parser.add_argument("--dbroot", type=str)
+    parser.add_argument('--filters', help="filter distribution (default: u 0.07 g 0.09 r 0.22 i 0.22 z 0.20 y 0.20)")
+    parser.add_argument("--same_pairs", action="store_true", default=False)
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -475,6 +514,8 @@ if __name__ == "__main__":
     nexp = args.nexp
     nslice = args.rolling_nslice
     scale = args.rolling_strength
+    filters = args.filters
+    dbroot = args.dbroot
 
     nside = 32
     per_night = True  # Dither DDF per night
@@ -494,10 +535,25 @@ if __name__ == "__main__":
     extra_info['file executed'] = os.path.realpath(__file__)
 
     # Use the filename of the script to name the output database
-    fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
+    if dbroot is None:
+        fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
+    else:
+        fileroot = dbroot + '_'
     file_end = 'v2.0_'
 
-    sm = Sky_area_generator(nside=nside)
+    if filters is None:
+        sm = Sky_area_generator(nside=nside,
+                                default_filter_balance={'u': 0.07, 'g': 0.09,
+                                                        'r': 0.22, 'i': 0.22,
+                                                        'z': 0.20, 'y': 0.20})
+    else:
+        filter_split = filters.split(" ")
+        filter_balance = {x: float(y) for x, y in zip(filter_split[::2], filter_split[1::2])}
+        if not np.isclose(1.0, np.sum([v for v in filter_balance.values()])):
+            raise ValueError('Make sure your filters sum to 1')
+        sm = Sky_area_generator(nside=nside,
+                                default_filter_balance=filter_balance)
+
     sm.set_maps()
     final_tot, footprints_hp = sm.return_maps()
     # Set the wfd, aka rolling, pixels
@@ -527,9 +583,25 @@ if __name__ == "__main__":
     ddfs = generate_dd_surveys(nside=nside, nexp=nexp, detailers=details, euclid_detailers=euclid_detailers)
 
     greedy = gen_greedy_surveys(nside, nexp=nexp, footprints=footprints)
-    blobs = generate_blobs(nside, nexp=nexp, footprints=footprints)
-    twi_blobs = generate_twi_blobs(nside, nexp=nexp, footprints=footprints, wfd_footprint=wfd_footprint,
-                                   repeat_night_weight=repeat_night_weight)
+
+    if args.same_pairs:
+        filters_blobs = ['u', 'g', 'r', 'i', 'z', 'y']
+        filters_twi = ['r', 'i', 'z', 'y']
+        blobs = generate_blobs(nside, nexp=nexp, footprints=footprints,
+                               filter1s=filters_blobs,
+                               filter2s=filters_blobs)
+        twi_blobs = generate_twi_blobs(nside, nexp=nexp,
+                                       footprints=footprints,
+                                       wfd_footprint=wfd_footprint,
+                                       repeat_night_weight=repeat_night_weight,
+                                       filter1s=filters_twi,
+                                       filter2s=filters_twi)
+    else:
+        blobs = generate_blobs(nside, nexp=nexp, footprints=footprints)
+        twi_blobs = generate_twi_blobs(nside, nexp=nexp,
+                                       footprints=footprints,
+                                       wfd_footprint=wfd_footprint,
+                                       repeat_night_weight=repeat_night_weight)
     surveys = [ddfs, blobs, twi_blobs, greedy]
     run_sched(surveys, survey_length=survey_length, verbose=verbose,
               fileroot=os.path.join(outDir, fileroot+file_end), extra_info=extra_info,
