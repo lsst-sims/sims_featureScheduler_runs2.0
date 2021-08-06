@@ -71,10 +71,10 @@ def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.2771763
    
     down = 1.-scale
     up = nslice - down*(nslice-1)
-    start = [1., 1., 1.]
+    start = [1.]
     end = [1., 1., 1., 1., 1., 1.]
     if nslice == 2:
-        rolling = [up, down, up, down, up, down]
+        rolling = [up, down, up, down, up, down, up, down]
     elif nslice == 3:
         rolling = [up, down, down, up, down, down]
     elif nslice == 6:
