@@ -37,9 +37,34 @@ def slice_wfd_indx(target_map, nslice=2, wfd_indx=None):
     return split_wfd_indices
 
 
+def six_slice(target_map, wfd_indx, nslice=6):
+    """Do six slices
+    """
+    ra, dec = ra_dec_hp_map(nside=hp.npix2nside(target_map['r'].size))
+
+    coord = SkyCoord(ra=ra*u.rad, dec=dec*u.rad)
+    gal_lon, gal_lat = coord.galactic.l.deg, coord.galactic.b.deg
+
+    indx_north = np.intersect1d(np.where(gal_lat >= 0)[0], wfd_indx)
+    indx_south = np.intersect1d(np.where(gal_lat < 0)[0], wfd_indx)
+    
+    splits_north = slice_wfd_indx(target_map, nslice=nslice, wfd_indx=indx_north)
+    splits_south = slice_wfd_indx(target_map, nslice=nslice, wfd_indx=indx_south)
+
+    slice_indx = []
+    for i in np.arange(1, nslice+1, 1):
+        indx_temp = []
+        indx_temp += indx_north[splits_north[i-1]:splits_north[i]].tolist()
+        indx_temp += indx_south[splits_south[i-1]:splits_south[i]].tolist()
+        slice_indx.append(indx_temp)
+
+    return slice_indx
+
+
 def slice_quad_galactic_cut(target_map, nslice=2, wfd_indx=None):
     """
-    Make the dec bands for galactic north and south independently
+    Make the dec bands for galactic north and south independently.
+    Probably only works for nslice=2 or 3
     """
 
     ra, dec = ra_dec_hp_map(nside=hp.npix2nside(target_map['r'].size))
@@ -95,10 +120,11 @@ def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.2771763
 
     wfd[wfd_indx] = 1
     non_wfd_indx = np.where(wfd == 0)[0] 
-
-    split_wfd_indices = slice_quad_galactic_cut(hp_footprints, nslice=nslice,
-                                                wfd_indx=wfd_indx)
-
+    if nslice == 6:
+        split_wfd_indices = six_slice(hp_footprints, wfd_indx, nslice=nslice)
+    else:
+        split_wfd_indices = slice_quad_galactic_cut(hp_footprints, nslice=nslice,
+                                                    wfd_indx=wfd_indx)
     for key in hp_footprints:
         temp = hp_footprints[key] + 0
         temp[wfd_indx] = 0
