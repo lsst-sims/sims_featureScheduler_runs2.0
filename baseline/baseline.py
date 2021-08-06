@@ -20,6 +20,23 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 
+def slice_wfd_indx(target_map, nslice=2, wfd_indx=None):
+    """
+    simple map split
+    """
+
+    wfd = target_map['r'] * 0
+    if wfd_indx is None:
+        wfd_innx = np.where(target_map['r'] == 1)[0]
+    wfd[wfd_indx] = 1
+    wfd_accum = np.cumsum(wfd)
+    split_wfd_indices = np.floor(np.max(wfd_accum)/nslice*(np.arange(nslice)+1)).astype(int)
+    split_wfd_indices = split_wfd_indices.tolist()
+    split_wfd_indices = [0] + split_wfd_indices
+
+    return split_wfd_indices
+
+
 def slice_quad_galactic_cut(target_map, nslice=2, wfd_indx=None):
     """
     Make the dec bands for galactic north and south independently
@@ -36,17 +53,15 @@ def slice_quad_galactic_cut(target_map, nslice=2, wfd_indx=None):
     splits_north = slice_wfd_area_quad(target_map, nslice=nslice, wfd_indx=indx_north)
     splits_south = slice_wfd_area_quad(target_map, nslice=nslice, wfd_indx=indx_south)
 
-    indx1 = []
-    for i in np.arange(1, nslice*2, 2):
-        indx1 += indx_north[splits_north[i-1]:splits_north[i]].tolist()
-        indx1 += indx_south[splits_south[i-1]:splits_south[i]].tolist()
-    
-    indx2 = []
-    for i in np.arange(2, nslice*2+1, 2):
-        indx2 += indx_north[splits_north[i-1]:splits_north[i]].tolist()
-        indx2 += indx_south[splits_south[i-1]:splits_south[i]].tolist()
+    slice_indx = []
+    for j in np.arange(nslice):
+        indx_temp = []
+        for i in np.arange(j+1, nslice*2+1, nslice):
+            indx_temp += indx_north[splits_north[i-1]:splits_north[i]].tolist()
+            indx_temp += indx_south[splits_south[i-1]:splits_south[i]].tolist()
+        slice_indx.append(indx_temp)
 
-    return [indx1, indx2]
+    return slice_indx
 
 
 def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.27717639,
@@ -81,7 +96,8 @@ def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.2771763
     wfd[wfd_indx] = 1
     non_wfd_indx = np.where(wfd == 0)[0] 
 
-    split_wfd_indices = slice_quad_galactic_cut(hp_footprints, nslice=nslice, wfd_indx=wfd_indx)
+    split_wfd_indices = slice_quad_galactic_cut(hp_footprints, nslice=nslice,
+                                                wfd_indx=wfd_indx)
 
     for key in hp_footprints:
         temp = hp_footprints[key] + 0
