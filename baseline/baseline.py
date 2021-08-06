@@ -503,7 +503,11 @@ if __name__ == "__main__":
     parser.add_argument("--rolling_strength", type=float, default=0.9)
     parser.add_argument("--dbroot", type=str)
     parser.add_argument('--filters', help="filter distribution (default: u 0.07 g 0.09 r 0.22 i 0.22 z 0.20 y 0.20)")
+<<<<<<< HEAD
     parser.add_argument("--same_pairs", action="store_true", default=False)
+=======
+    parser.add_argument("--same_pairs",  action="store_true", default=False)
+>>>>>>> main
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -587,6 +591,7 @@ if __name__ == "__main__":
     if args.same_pairs:
         filters_blobs = ['u', 'g', 'r', 'i', 'z', 'y']
         filters_twi = ['r', 'i', 'z', 'y']
+
         blobs = generate_blobs(nside, nexp=nexp, footprints=footprints,
                                filter1s=filters_blobs,
                                filter2s=filters_blobs)
