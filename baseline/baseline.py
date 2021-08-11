@@ -454,20 +454,18 @@ if __name__ == "__main__":
         fileroot = dbroot + '_'
     file_end = 'v2.0_'
 
+    sm = Sky_area_generator(nside=nside)
     if filters is None:
-        sm = Sky_area_generator(nside=nside,
-                                default_filter_balance={'u': 0.07, 'g': 0.09,
-                                                        'r': 0.22, 'i': 0.22,
-                                                        'z': 0.20, 'y': 0.20})
-    else:
+        sm.set_maps()
+    
+    if filters is not None:
         filter_split = filters.split(" ")
         filter_balance = {x: float(y) for x, y in zip(filter_split[::2], filter_split[1::2])}
         if not np.isclose(1.0, np.sum([v for v in filter_balance.values()])):
             raise ValueError('Make sure your filters sum to 1')
-        sm = Sky_area_generator(nside=nside,
-                                default_filter_balance=filter_balance)
-
-    sm.set_maps()
+        sm.set_dustfree_wfd(sm.nvis_wfd_default, dustfree_wfd_filter_balance=filters)
+        sm.set_maps(dustfree=False)
+        
     final_tot, footprints_hp = sm.return_maps()
     # Set the wfd, aka rolling, pixels
     wfd_footprint = sm.maps['dustfree']
