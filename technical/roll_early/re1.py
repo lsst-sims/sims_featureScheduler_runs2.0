@@ -558,10 +558,7 @@ if __name__ == "__main__":
     file_end = 'v2.0_'
 
     if filters is None:
-        sm = Sky_area_generator(nside=nside,
-                                default_filter_balance={'u': 0.07, 'g': 0.09,
-                                                        'r': 0.22, 'i': 0.22,
-                                                        'z': 0.20, 'y': 0.20})
+        sm = Sky_area_generator(nside=nside)
     else:
         filter_split = filters.split(" ")
         filter_balance = {x: float(y) for x, y in zip(filter_split[::2], filter_split[1::2])}
