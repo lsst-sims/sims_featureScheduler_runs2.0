@@ -54,6 +54,6 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/technical/lax_dome
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-python baseline.py
+python dome_creep.py
 printf "glance_dir\nscimaf_dir" | parallel -j 20
 
