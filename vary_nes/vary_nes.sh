@@ -1,14 +1,14 @@
-vary_nes.py --nes_frac 0.01
-vary_nes.py --nes_frac 0.05
-vary_nes.py --nes_frac 0.10
-vary_nes.py --nes_frac 0.15
-vary_nes.py --nes_frac 0.20
-vary_nes.py --nes_frac 0.25
-vary_nes.py --nes_frac 0.30
-vary_nes.py --nes_frac 0.35
-vary_nes.py --nes_frac 0.40
-vary_nes.py --nes_frac 0.45
-vary_nes.py --nes_frac 0.50
-vary_nes.py --nes_frac 0.55
-vary_nes.py --nes_frac 0.75
-vary_nes.py --nes_frac 1.0
+python vary_nes.py --nes_frac 0.01
+python vary_nes.py --nes_frac 0.05
+python vary_nes.py --nes_frac 0.10
+python vary_nes.py --nes_frac 0.15
+python vary_nes.py --nes_frac 0.20
+python vary_nes.py --nes_frac 0.25
+python vary_nes.py --nes_frac 0.30
+python vary_nes.py --nes_frac 0.35
+python vary_nes.py --nes_frac 0.40
+python vary_nes.py --nes_frac 0.45
+python vary_nes.py --nes_frac 0.50
+python vary_nes.py --nes_frac 0.55
+python vary_nes.py --nes_frac 0.75
+python vary_nes.py --nes_frac 1.0
