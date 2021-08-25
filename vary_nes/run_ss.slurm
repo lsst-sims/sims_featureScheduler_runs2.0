@@ -54,4 +54,4 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/vary_nes
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-cat ss.sh | parallel -j 40
+cat ss_script.sh | parallel -j 40
