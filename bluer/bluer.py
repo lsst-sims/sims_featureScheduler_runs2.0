@@ -469,9 +469,9 @@ if __name__ == "__main__":
     filter_b_list = [{'u': 0.07, 'g': 0.12, 'r': 0.21, 'i': 0.21, 'z': 0.19, 'y': 0.20},
                      {'u': 0.08, 'g': 0.11, 'r': 0.21, 'i': 0.21, 'z': 0.19, 'y': 0.20}]
 
+    sm.set_maps()
     sm.set_dustfree_wfd(sm.nvis_wfd_default,
                         dustfree_wfd_filter_balance=filter_b_list[filter_balance_indx])
-    sm.set_maps()
     final_tot, footprints_hp = sm.return_maps()
     # Set the wfd, aka rolling, pixels
     wfd_footprint = sm.maps['dustfree']
