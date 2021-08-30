@@ -54,5 +54,6 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/rolling
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-cat rolling.sh | parallel -j 20
+# cat rolling.sh | parallel -j 20
+cat maf.sh | parallel -j 20
 
