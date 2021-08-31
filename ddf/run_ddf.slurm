@@ -55,5 +55,5 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/ddf
 module load parallel-20170722
 
 cat ddf.sh |  parallel -j 20
-cat run_maf | parallel -j 20
+cat run_maf.sh | parallel -j 20
 
