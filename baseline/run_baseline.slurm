@@ -54,6 +54,6 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/baseline
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-#python baseline.py
+python baseline.py
 printf "glance_dir\nscimaf_dir" | parallel -j 20
 
