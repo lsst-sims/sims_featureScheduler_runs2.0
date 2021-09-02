@@ -418,6 +418,7 @@ if __name__ == "__main__":
     parser.add_argument("--dbroot", type=str)
     parser.add_argument('--filters', help="filter distribution (default: u 0.07 g 0.09 r 0.22 i 0.22 z 0.20 y 0.20)")
     parser.add_argument("--same_pairs", action="store_true", default=False)
+    parser.add_argument("--nights_off", type=int, default=0)
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -430,6 +431,7 @@ if __name__ == "__main__":
     scale = args.rolling_strength
     filters = args.filters
     dbroot = args.dbroot
+    nights_off = args.nights_off
 
     nside = 32
     per_night = True  # Dither DDF per night
@@ -453,7 +455,7 @@ if __name__ == "__main__":
         fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
     else:
         fileroot = dbroot + '_'
-    file_end = 'v2.0_'
+    file_end = 'nightsoff%i_' % nights_off + 'v2.0_'
 
     if filters is None:
         sm = Sky_area_generator(nside=nside)
@@ -495,7 +497,9 @@ if __name__ == "__main__":
 
     greedy = gen_greedy_surveys(nside, nexp=nexp, footprints=footprints)
 
-    long_gaps = gen_long_gaps_survey(nside=nside, footprints=footprints)
+    night_pattern = [True] + [False]*nights_off
+
+    long_gaps = gen_long_gaps_survey(nside=nside, footprints=footprints, night_pattern=night_pattern)
 
     if args.same_pairs:
         filters_blobs = ['u', 'g', 'r', 'i', 'z', 'y']

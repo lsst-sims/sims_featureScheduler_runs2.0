@@ -14,7 +14,8 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
                   season=300., season_start_hour=-4., season_end_hour=2.,
                   shadow_minutes=60., max_alt=76., moon_distance=30., ignore_obs='DD',
                   m5_weight=6., footprint_weight=1.5, slewtime_weight=3.,
-                  stayfilter_weight=3., template_weight=12., footprints=None, u_nexp1=True):
+                  stayfilter_weight=3., template_weight=12., footprints=None, u_nexp1=True,
+                  night_pattern=[True, True]):
     """
     Generate surveys that take observations in blobs.
 
@@ -137,6 +138,8 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
         bfs.append((bf.After_evening_twi_basis_function(time_after=30.), 0.))
         # XXX--move kwargs up
         bfs.append((bf.HA_mask_basis_function(HA_min=12, HA_max=24-3), 0.))
+        # don't execute every night
+        bfs.append((bf.Night_modulo_basis_function(night_pattern), 0.))
 
         # unpack the basis functions and weights
         weights = [val[1] for val in bfs]
@@ -159,16 +162,16 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
     return surveys
 
 
-def gen_long_gaps_survey(footprints, nside=32):
+def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True]):
 
     surveys = []
     f1 = ['g', 'r', 'i']
     f2 = ['r', 'i', 'z']
     # Maybe force scripted to not go in twilight?
-    
+
     for filtername1, filtername2 in zip(f1, f2):
         blob = blob_for_long(footprints=footprints, nside=nside, filter1s=[filtername1],
-                             filter2s=[filtername2])
+                             filter2s=[filtername2], night_pattern=night_pattern)
         scripted = Scripted_survey([], nside=nside, ignore_obs=['blob', 'DDF', 'twi'])
         surveys.append(Long_gap_survey(blob[0], scripted,
                                        gap_range=[2, 10]))
