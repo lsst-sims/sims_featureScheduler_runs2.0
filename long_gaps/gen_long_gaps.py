@@ -15,7 +15,7 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
                   shadow_minutes=60., max_alt=76., moon_distance=30., ignore_obs='DD',
                   m5_weight=6., footprint_weight=1.5, slewtime_weight=3.,
                   stayfilter_weight=3., template_weight=12., footprints=None, u_nexp1=True,
-                  night_pattern=[True, True]):
+                  night_pattern=[True, True], time_after_twi=30., HA_min=12, HA_max=24-3.5):
     """
     Generate surveys that take observations in blobs.
 
@@ -134,10 +134,9 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
         bfs.append((bf.Time_to_twilight_basis_function(time_needed=time_needed), 0.))
         bfs.append((bf.Not_twilight_basis_function(), 0.))
         bfs.append((bf.Planet_mask_basis_function(nside=nside), 0.))
-        # XXX--move time after up
-        bfs.append((bf.After_evening_twi_basis_function(time_after=30.), 0.))
+        bfs.append((bf.After_evening_twi_basis_function(time_after=time_after_twi), 0.))
         # XXX--move kwargs up
-        bfs.append((bf.HA_mask_basis_function(HA_min=12, HA_max=24-3), 0.))
+        bfs.append((bf.HA_mask_basis_function(HA_min=HA_min, HA_max=HA_max), 0.))
         # don't execute every night
         bfs.append((bf.Night_modulo_basis_function(night_pattern), 0.))
 
@@ -162,7 +161,8 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
     return surveys
 
 
-def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True]):
+def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
+                         gap_range=[2, 7], HA_min=12, HA_max=24-3.5):
 
     surveys = []
     f1 = ['g', 'r', 'i']
@@ -171,9 +171,10 @@ def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True]):
 
     for filtername1, filtername2 in zip(f1, f2):
         blob = blob_for_long(footprints=footprints, nside=nside, filter1s=[filtername1],
-                             filter2s=[filtername2], night_pattern=night_pattern)
+                             filter2s=[filtername2], night_pattern=night_pattern, time_after_twi=30.,
+                             HA_min=HA_min, HA_max=HA_max)
         scripted = Scripted_survey([], nside=nside, ignore_obs=['blob', 'DDF', 'twi'])
         surveys.append(Long_gap_survey(blob[0], scripted,
-                                       gap_range=[2, 10]))
+                                       gap_range=gap_range))
 
     return surveys
