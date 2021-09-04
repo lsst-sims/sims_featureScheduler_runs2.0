@@ -54,6 +54,6 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/long_gaps
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-cat long_gaps.sh | parallel -j 20
+# cat long_gaps.sh | parallel -j 20
 cat maf.sh | parallel -j 20
 
