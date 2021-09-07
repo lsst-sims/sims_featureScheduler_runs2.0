@@ -162,7 +162,8 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
 
 
 def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
-                         gap_range=[2, 7], HA_min=12, HA_max=24-3.5):
+                         gap_range=[2, 7], HA_min=12, HA_max=24-3.5,
+                         time_after_twi=120):
 
     surveys = []
     f1 = ['g', 'r', 'i']
@@ -171,7 +172,7 @@ def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
 
     for filtername1, filtername2 in zip(f1, f2):
         blob = blob_for_long(footprints=footprints, nside=nside, filter1s=[filtername1],
-                             filter2s=[filtername2], night_pattern=night_pattern, time_after_twi=30.,
+                             filter2s=[filtername2], night_pattern=night_pattern, time_after_twi=time_after_twi,
                              HA_min=HA_min, HA_max=HA_max)
         scripted = Scripted_survey([], nside=nside, ignore_obs=['blob', 'DDF', 'twi'])
         surveys.append(Long_gap_survey(blob[0], scripted,
