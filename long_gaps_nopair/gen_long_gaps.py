@@ -176,6 +176,6 @@ def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
                              HA_min=HA_min, HA_max=HA_max)
         scripted = Scripted_survey([], nside=nside, ignore_obs=['blob', 'DDF', 'twi'])
         surveys.append(Long_gap_survey(blob[0], scripted,
-                                       gap_range=gap_range, after_meridian=False))
+                                       gap_range=gap_range))
 
     return surveys

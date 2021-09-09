@@ -164,6 +164,12 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
 def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
                          gap_range=[2, 7], HA_min=12, HA_max=24-3.5,
                          time_after_twi=120):
+    """
+    Paramterers
+    -----------
+    HA_min(_max) : float
+        The hour angle limits passed to the initial blob scheduler.
+    """
 
     surveys = []
     f1 = ['g', 'r', 'i']
@@ -176,6 +182,6 @@ def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
                              HA_min=HA_min, HA_max=HA_max)
         scripted = Scripted_survey([], nside=nside, ignore_obs=['blob', 'DDF', 'twi'])
         surveys.append(Long_gap_survey(blob[0], scripted,
-                                       gap_range=gap_range))
+                                       gap_range=gap_range, avoid_zenith=True))
 
     return surveys
