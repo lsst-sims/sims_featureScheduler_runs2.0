@@ -569,11 +569,11 @@ if __name__ == "__main__":
     bulge_n_indx = bulge_indx[0:int(np.size(bulge_indx)/2)]
     bulge_s_indx = bulge_indx[int(np.size(bulge_indx)/2):]
     for i in np.arange(6):
-        rolling_footprints[0].footprints[i][bulge_n_indx] = fp_non_wfd.footprints[i][bulge_n_indx] + 0
-        fp_non_wfd.footprints[i][bulge_n_indx] = 0
-        
-        rolling_footprints[1].footprints[i][bulge_s_indx] = fp_non_wfd.footprints[i][bulge_s_indx] + 0
+        rolling_footprints[0].footprints[i][bulge_n_indx] = fp_non_wfd.footprints[i][bulge_s_indx] + 0
         fp_non_wfd.footprints[i][bulge_s_indx] = 0
+        
+        rolling_footprints[1].footprints[i][bulge_s_indx] = fp_non_wfd.footprints[i][bulge_n_indx] + 0
+        fp_non_wfd.footprints[i][bulge_n_indx] = 0
 
     footprints = Footprints([fp_non_wfd] + rolling_footprints)
 
