@@ -1,0 +1,9 @@
+glance_dir --db six_rolling_ns6_rw0.9_fpw0.5_v2.0_10yrs.db
+glance_dir --db six_rolling_ns6_rw0.9_fpw1.0_v2.0_10yrs.db
+glance_dir --db six_rolling_ns6_rw0.9_fpw1.5_v2.0_10yrs.db
+glance_dir --db six_rolling_ns6_rw0.9_fpw2.0_v2.0_10yrs.db
+glance_dir --db six_rolling_ns6_rw0.9_fpw3.0_v2.0_10yrs.db
+glance_dir --db six_rolling_ns6_rw0.9_fpw4.5_v2.0_10yrs.db
+glance_dir --db six_rolling_ns6_rw0.9_fpw6.0_v2.0_10yrs.db
+glance_dir --db six_rolling_ns6_rw0.9_fpw10.0_v2.0_10yrs.db
+glance_dir --db six_rolling_ns6_rw0.9_fpw20.0_v2.0_10yrs.db
