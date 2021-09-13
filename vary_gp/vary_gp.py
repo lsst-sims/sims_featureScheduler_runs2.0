@@ -417,7 +417,7 @@ if __name__ == "__main__":
     parser.add_argument("--dbroot", type=str)
     parser.add_argument('--filters', help="filter distribution (default: u 0.07 g 0.09 r 0.22 i 0.22 z 0.20 y 0.20)")
     parser.add_argument("--same_pairs", action="store_true", default=False)
-    parser.add_argument("--nvis_gp", type=int, default=250)
+    parser.add_argument("--gp_frac", type=float, default=0.27)
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -430,7 +430,7 @@ if __name__ == "__main__":
     scale = args.rolling_strength
     filters = args.filters
     dbroot = args.dbroot
-    nvis_gp = args.nvis_gp
+    gp_frac = args.gp_frac
 
     nside = 32
     per_night = True  # Dither DDF per night
@@ -454,20 +454,19 @@ if __name__ == "__main__":
         fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
     else:
         fileroot = dbroot + '_'
-    file_end = 'nvgp%i_' % nvis_gp + 'v2.0_'
+    file_end = 'gpfrac%.2f_' % gp_frac + 'v2.0_'
 
     if filters is None:
-        sm = Sky_area_generator(nside=nside)
+        sm = Sky_area_generator(nside=nside, nvis_frac_gp=gp_frac)
     else:
         filter_split = filters.split(" ")
         filter_balance = {x: float(y) for x, y in zip(filter_split[::2], filter_split[1::2])}
         if not np.isclose(1.0, np.sum([v for v in filter_balance.values()])):
             raise ValueError('Make sure your filters sum to 1')
         sm = Sky_area_generator(nside=nside,
-                                default_filter_balance=filter_balance)
+                                default_filter_balance=filter_balance, nvis_frac_gp=gp_frac)
 
     sm.set_maps()
-    sm.set_galactic_plane(sm.nvis_wfd_default, nvis_gal_min=nvis_gp)
 
     final_tot, footprints_hp = sm.return_maps()
     # Set the wfd, aka rolling, pixels
