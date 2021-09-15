@@ -70,11 +70,19 @@ Similar to previous baseline surveys. Mostly here to be used as a comparison run
 
 # rolling
 
-Rolling cadences with half, third, or sixth of the sky. Trying 0.5 or 0.9 rolling strength.
+Rolling cadences with half, or third of the sky. Trying 0.5 or 0.9 rolling strength.
+
+# rolling_six
+
+Rolling cadences where 1/6th of the sky is on for any season. 0.5 or 0.9 rolling strength.
 
 # rolling bulge
 
 Like the baseline, but split the MW bulge in half and roll there as well.
+
+# roll_early
+
+Similar to the baseline, but begin rolling earlier so an additional season of rolling gets completed.
 
 # vary_gp
 
