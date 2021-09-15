@@ -5,7 +5,7 @@ import matplotlib.pylab as plt
 import healpy as hp
 from rubin_sim.scheduler.modelObservatory import Model_observatory
 from rubin_sim.scheduler.schedulers import Core_scheduler, simple_filter_sched
-from rubin_sim.scheduler.utils import (Sky_area_generator, Footprints, Footprint, Step_slopes)
+from rubin_sim.scheduler.utils import (Sky_area_generator, Footprints, Footprint, Step_slopes, ra_dec_hp_map)
 import rubin_sim.scheduler.basis_functions as bf
 from rubin_sim.scheduler.surveys import (Greedy_survey, generate_dd_surveys,
                                          Blob_survey)
@@ -15,6 +15,8 @@ import sys
 import subprocess
 import os
 import argparse
+from astropy.coordinates import SkyCoord
+from astropy import units as u
 
 
 def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.27717639,
@@ -71,7 +73,7 @@ def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.2771763
     wfd[wfd_indx] = 1
     non_wfd_indx = np.where(wfd == 0)[0] 
 
-    split_wfd_indices = slice_wfd_indx(hp_footprints, nslice=nslice,
+    split_wfd_indices = slice_galactic_cut(hp_footprints, nslice=nslice,
                                        wfd_indx=wfd_indx)
 
     for key in hp_footprints:
@@ -94,6 +96,43 @@ def make_rolling_footprints(fp_hp=None, mjd_start=60218., sun_RA_start=3.2771763
 
     result = Footprints([fp_non_wfd] + rolling_footprints)
     return result
+
+
+def slice_galactic_cut(target_map, nslice=2, wfd_indx=None):
+    """
+    Helper function for generating rolling footprints
+
+    Parameters
+    ----------
+    target_map : dict of HEALpix maps
+        The final desired footprint as HEALpix maps. Keys are filter names
+    nslice : int (2)
+        The number of slices to make, can be 2 or 3.
+    wfd_indx : array of ints
+        The indices of target_map that should be used for rolling. If None, assumes
+        the rolling area should be where target_map['r'] == 1.
+    """
+
+    ra, dec = ra_dec_hp_map(nside=hp.npix2nside(target_map['r'].size))
+
+    coord = SkyCoord(ra=ra*u.rad, dec=dec*u.rad)
+    gal_lon, gal_lat = coord.galactic.l.deg, coord.galactic.b.deg
+
+    indx_north = np.intersect1d(np.where(gal_lat >= 0)[0], wfd_indx)
+    indx_south = np.intersect1d(np.where(gal_lat < 0)[0], wfd_indx)
+    
+    splits_north = slice_wfd_indx(target_map, nslice=nslice, wfd_indx=indx_north)
+    splits_south = slice_wfd_indx(target_map, nslice=nslice, wfd_indx=indx_south)
+
+    slice_indx = []
+    for j in np.arange(nslice):
+        indx_temp = []
+        for i in np.arange(j+1, nslice+1, nslice):
+            indx_temp += indx_north[splits_north[i-1]:splits_north[i]].tolist()
+            indx_temp += indx_south[splits_south[i-1]:splits_south[i]].tolist()
+        slice_indx.append(indx_temp)
+
+    return slice_indx
 
 
 def slice_wfd_indx(target_map, nslice=2, wfd_indx=None):
