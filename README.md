@@ -47,6 +47,14 @@ long_u2:  Increase u-band to 50s, decrease the number of exposures so total u-ex
 
 Does intensive observations of carina nebula for 1 week each year.
 
+## short_exp
+
+Takes 5 second exoposures in all filters in year 1.
+
+## multi_short
+
+Takes sequences of 4 5-second exposures. Shoots for 12 total short exposures per year.
+
 # noroll
 
 Like baseline, but no rolling cadence.
