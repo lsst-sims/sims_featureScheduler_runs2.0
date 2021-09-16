@@ -164,11 +164,10 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
 
 def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
                          gap_range=[2.5, 2.5], HA_min=12, HA_max=24-2.5,
-                         time_after_twi=200, scripted_tol=1.0):
+                         time_after_twi=200, scripted_tol=1.0,
+                         f1=['g', 'r', 'i'], f2=['r', 'i', 'z']):
     gap_time = np.min(gap_range)
     surveys = []
-    f1 = ['g', 'r', 'i']
-    f2 = ['r', 'i', 'z']
     # Maybe force scripted to not go in twilight?
 
     for filtername1, filtername2 in zip(f1, f2):
