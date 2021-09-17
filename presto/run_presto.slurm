@@ -54,6 +54,6 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/presto
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-cat presto.sh | parallel -j 20
+#cat presto.sh | parallel -j 20
 cat maf.sh | parallel -j 20
 
