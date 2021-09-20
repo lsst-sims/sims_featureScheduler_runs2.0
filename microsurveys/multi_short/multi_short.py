@@ -234,12 +234,12 @@ def generate_blobs(nside, nexp=2, exptime=30., filter1s=['u', 'u', 'g', 'r', 'i'
         # add on a detailer to take short exposures if needed
         detailer_list.append(detailers.Short_expt_detailer(filtername=filtername, nside=nside,
                                                            nobs=nshort, exp_time=short_time,
-                                                           in_a_row=short_in_a_row,
+                                                           n_repeat=short_in_a_row,
                                                            footprint=footprints.get_footprint(filtername)))
         if (filtername2 is not None) & (filtername2 != filtername):
             detailer_list.append(detailers.Short_expt_detailer(filtername=filtername2, nside=nside,
                                                                nobs=nshort, exp_time=short_time,
-                                                               in_a_row=short_in_a_row,
+                                                               n_repeat=short_in_a_row,
                                                                footprint=footprints.get_footprint(filtername)))
 
         if u_nexp1:
