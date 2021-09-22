@@ -55,4 +55,4 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/retro
 module load parallel-20170722
 
 cat retro.sh | parallel -j 20
-
+cat run_maf.sh | parallel -j 20
