@@ -30,7 +30,9 @@ Varying the amount of time given to observing the DDFs.
 
 Takes observations in the east g+r, r+i, or i+z with 33 min separation. Then take a third observation 2-7 hours later.
 
-Vary how often we attempt to observe triples (from every night, to every 7th night) 
+Vary how often we attempt to observe triples (from every night, to every 7th night).
+
+Adding an additional set where it doesn't start attempting long gaps until year 5.
 
 # Long gaps no pair
 
@@ -55,6 +57,10 @@ Takes 5 second exoposures in all filters in year 1.
 
 Takes sequences of 4 5-second exposures. Shoots for 12 total short exposures per year.
 
+## north_stripe
+
+Add a northern extension to the footprint. Probably just to have image templates to chace ToOs anywhere on the sky.
+
 # noroll
 
 Like baseline, but no rolling cadence.
@@ -66,7 +72,9 @@ taking pairs in the east (g+r, r+i, i+z) or (g+i, r+z, i+y), then taking a third
 
 # retro
 
-Similar to previous baseline surveys. Mostly here to be used as a comparison run to check changes between previous baseline strategy and new runs.
+retro_baseline_v2.0_10yrs.db: Similar to previous baseline surveys. Mostly here to be used as a comparison run to check changes between previous baseline strategy and new runs.
+
+baseline_retrofoot_v2.0_10yrs.db:  The v2.0 baseline settings, but with the classic footprint. Rolling might so some wacky things here because it's expecting a different footprint.
 
 # rolling
 
@@ -78,11 +86,11 @@ Rolling cadences where 1/6th of the sky is on for any season. 0.5 or 0.9 rolling
 
 # rolling bulge
 
-Like the baseline, but split the MW bulge in half and roll there as well.
+Like the baseline, but split the MW bulge in half and roll there as well. The SCOC requested a 6-stripe bulge rolling, but that's not going to be difficult to work with pairs. 
 
 # roll_early
 
-Similar to the baseline, but begin rolling earlier so an additional season of rolling gets completed.
+Similar to the baseline, but begin rolling earlier so an additional season of rolling gets completed. 
 
 # vary_gp
 
