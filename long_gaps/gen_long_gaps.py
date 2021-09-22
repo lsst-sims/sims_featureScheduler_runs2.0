@@ -5,7 +5,21 @@ import rubin_sim.scheduler.basis_functions as bf
 from rubin_sim.scheduler.surveys import (Long_gap_survey, Scripted_survey,
                                          Blob_survey)
 import rubin_sim.scheduler.detailers as detailers
+from rubin_sim.scheduler.basis_functions import Base_basis_function
 
+
+class Delay_start_basis_function(Base_basis_function):
+    """Force things to not run before a given night
+    """
+    def __init__(self, nights_delay=365.25*5):
+        super().__init__()
+        self.nights_delay = nights_delay
+
+    def check_feasibility(self, conditions):
+        result = True
+        if conditions.night < self.nights_delay:
+            result = False
+        return result
 
 
 def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
@@ -15,7 +29,8 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
                   shadow_minutes=60., max_alt=76., moon_distance=30., ignore_obs='DD',
                   m5_weight=6., footprint_weight=1.5, slewtime_weight=3.,
                   stayfilter_weight=3., template_weight=12., footprints=None, u_nexp1=True,
-                  night_pattern=[True, True], time_after_twi=30., HA_min=12, HA_max=24-3.5):
+                  night_pattern=[True, True], time_after_twi=30., HA_min=12, HA_max=24-3.5,
+                  nights_delayed=-1):
     """
     Generate surveys that take observations in blobs.
 
@@ -139,6 +154,8 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
         bfs.append((bf.HA_mask_basis_function(HA_min=HA_min, HA_max=HA_max), 0.))
         # don't execute every night
         bfs.append((bf.Night_modulo_basis_function(night_pattern), 0.))
+        # possibly force things to delay
+        bfs.append((Delay_start_basis_function(nights_delay=nights_delayed), 0.))
 
         # unpack the basis functions and weights
         weights = [val[1] for val in bfs]
@@ -163,7 +180,7 @@ def blob_for_long(nside, nexp=2, exptime=30., filter1s=['g'],
 
 def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
                          gap_range=[2, 7], HA_min=12, HA_max=24-3.5,
-                         time_after_twi=120):
+                         time_after_twi=120, nights_delayed=-1):
     """
     Paramterers
     -----------
@@ -179,7 +196,7 @@ def gen_long_gaps_survey(footprints, nside=32, night_pattern=[True, True],
     for filtername1, filtername2 in zip(f1, f2):
         blob = blob_for_long(footprints=footprints, nside=nside, filter1s=[filtername1],
                              filter2s=[filtername2], night_pattern=night_pattern, time_after_twi=time_after_twi,
-                             HA_min=HA_min, HA_max=HA_max)
+                             HA_min=HA_min, HA_max=HA_max, nights_delayed=nights_delayed)
         scripted = Scripted_survey([], nside=nside, ignore_obs=['blob', 'DDF', 'twi'])
         surveys.append(Long_gap_survey(blob[0], scripted,
                                        gap_range=gap_range, avoid_zenith=True))
