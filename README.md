@@ -61,7 +61,7 @@ Like baseline, but no rolling cadence.
 
 # presto
 
-taking pairs in the east (g+r, r+i, i+z), then taking a third observation ~2.5 hours later. 
+taking pairs in the east (g+r, r+i, i+z) or (g+i, r+z, i+y), then taking a third observation 1.5-4.0 hours later. 
 
 
 # retro
