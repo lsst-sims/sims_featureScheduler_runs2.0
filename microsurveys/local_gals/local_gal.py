@@ -6,11 +6,12 @@ import healpy as hp
 from rubin_sim.scheduler.modelObservatory import Model_observatory
 from rubin_sim.scheduler.schedulers import Core_scheduler, simple_filter_sched
 from rubin_sim.scheduler.utils import (Sky_area_generator,
-                                       make_rolling_footprints, hpid2RaDec, angularSeparation)
+                                       make_rolling_footprints)
 import rubin_sim.scheduler.basis_functions as bf
 from rubin_sim.scheduler.surveys import (Greedy_survey, generate_dd_surveys,
                                          Blob_survey)
 from rubin_sim.scheduler import sim_runner
+from rubin_sim.utils import hpid2RaDec, angularSeparation
 import rubin_sim.scheduler.detailers as detailers
 import sys
 import subprocess
@@ -24,6 +25,10 @@ def galaxies_map(nside=32):
     names = ['name', 'ra', 'dec', 'MB', 'mm', 'd', 'rv1', 'rv2']
     types = ['|U7', float, float, float, float, float, float, float]
     gals = np.genfromtxt('gals.dat', dtype=list(zip(names, types)))
+    # Seriously? Someone put in a table with RA coordinates in decimal hours?
+    # And didn't even label it. XXX--be sure to check NED and be sure these 
+    # are all correct coordinates.
+    gals['ra'] = gals['ra']*360/24.
     gal_map = np.zeros(hp.nside2npix(nside), dtype=float)
     ra, dec = hpid2RaDec(nside, np.arange(gal_map.size))
     for gal in gals:
@@ -494,7 +499,7 @@ if __name__ == "__main__":
     gal_indx = np.where(gal_map > 0)[0]
     bump_ups = {'g': 0.2, 'r': 0.1, 'i': 0.1}
     for key in bump_ups:
-        footprints_hp[key][gal_indx] += bump_ups[key]
+        footprints_hp[key][gal_indx] = footprints_hp[key][wfd_indx].min() + bump_ups[key]
 
     repeat_night_weight = None
 
