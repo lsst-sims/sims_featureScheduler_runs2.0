@@ -497,7 +497,7 @@ if __name__ == "__main__":
     # Add the galaxies to the footprints
     gal_map = galaxies_map(nside=nside)
     gal_indx = np.where(gal_map > 0)[0]
-    bump_ups = {'g': 0.2, 'r': 0.1, 'i': 0.1}
+    bump_ups = {'g': 0.5, 'r': 0.2, 'i': 0.1}
     for key in bump_ups:
         footprints_hp[key][gal_indx] = footprints_hp[key][wfd_indx].min() + bump_ups[key]
 
