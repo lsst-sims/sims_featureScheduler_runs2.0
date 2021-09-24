@@ -54,6 +54,6 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/microsurveys/local_g
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-python local_gal.py
-printf "glance_dir\nscimaf_dir" | parallel -j 20
+cat local_gals.sh | parallel -j 20
+cat maf.sh | parallel -j 20
 

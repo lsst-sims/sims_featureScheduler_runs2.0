@@ -437,6 +437,7 @@ if __name__ == "__main__":
     parser.add_argument("--dbroot", type=str)
     parser.add_argument('--filters', help="filter distribution (default: u 0.07 g 0.09 r 0.22 i 0.22 z 0.20 y 0.20)")
     parser.add_argument("--same_pairs", action="store_true", default=False)
+    parser.add_argument("--bindx", type=int, default=0)
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -449,6 +450,7 @@ if __name__ == "__main__":
     scale = args.rolling_strength
     filters = args.filters
     dbroot = args.dbroot
+    bindx = args.bindx
 
     nside = 32
     per_night = True  # Dither DDF per night
@@ -472,7 +474,7 @@ if __name__ == "__main__":
         fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
     else:
         fileroot = dbroot + '_'
-    file_end = 'v2.0_'
+    file_end = 'bindx%i_' % bindx + 'v2.0_'
 
     if filters is None:
         sm = Sky_area_generator(nside=nside)
@@ -497,7 +499,10 @@ if __name__ == "__main__":
     # Add the galaxies to the footprints
     gal_map = galaxies_map(nside=nside)
     gal_indx = np.where(gal_map > 0)[0]
-    bump_ups = {'g': 0.5, 'r': 0.2, 'i': 0.1}
+    bumps = [{'g': 0.5, 'r': 0.2, 'i': 0.1},
+             {'g': 1.0, 'r': 0.3, 'i': 0.1},
+             {'g': 1.5, 'r': 0.35, 'i': 0.2}]
+    bump_ups = bumps[bindx]
     for key in bump_ups:
         footprints_hp[key][gal_indx] = footprints_hp[key][wfd_indx].min() + bump_ups[key]
 
