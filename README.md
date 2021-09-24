@@ -61,6 +61,10 @@ Takes sequences of 4 5-second exposures. Shoots for 12 total short exposures per
 
 Add a northern extension to the footprint. Probably just to have image templates to chace ToOs anywhere on the sky.
 
+## local_gal
+
+Taking extra g,r,i images around 10 nearby galaxies. Ran a few different boosts around the galaxies. Note that the cadence note used minion_1016 as a reference point, so they were a bit optimistic on what the base coadded depths would be. May not be as feasible with the mroe realistic weather we have now.
+
 # noroll
 
 Like baseline, but no rolling cadence.
