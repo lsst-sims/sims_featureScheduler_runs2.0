@@ -498,7 +498,7 @@ if __name__ == "__main__":
     ddfs = generate_dd_surveys(nside=nside, nexp=nexp, detailers=details, euclid_detailers=euclid_detailers)
 
     # Set from looking at median depths obtained in the baseline. 
-    twi_target_m5 = {'r': 23.67, 'i': 23.12, 'z': 22.44, 'y': 21.62}
+    twi_target_m5 = {'u': 23.62, 'g': 24.39, 'r': 23.94, 'i': 23.34, 'z': 22.72, 'y': 21.97}#{'r': 23.67, 'i': 23.12, 'z': 22.44, 'y': 21.62}
     blob_target_m5 = {'u': 23.62, 'g': 24.39, 'r': 23.94, 'i': 23.34, 'z': 22.72, 'y': 21.97}
 
     greedy = gen_greedy_surveys(nside, nexp=nexp, footprints=footprints, target_m5=twi_target_m5)
