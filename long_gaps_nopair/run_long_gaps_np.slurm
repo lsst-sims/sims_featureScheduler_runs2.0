@@ -54,6 +54,5 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/long_gaps_nopair
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-python long_gaps_np.py
-printf "glance_dir\nscimaf_dir" | parallel -j 20
+cat long_gaps.sh | parallel -j 20
 

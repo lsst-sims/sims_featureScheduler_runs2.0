@@ -419,6 +419,7 @@ if __name__ == "__main__":
     parser.add_argument('--filters', help="filter distribution (default: u 0.07 g 0.09 r 0.22 i 0.22 z 0.20 y 0.20)")
     parser.add_argument("--same_pairs", action="store_true", default=False)
     parser.add_argument("--nights_off", type=int, default=0)
+    parser.add_argument("--nights_delayed", type=int, default=-1)
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -432,6 +433,7 @@ if __name__ == "__main__":
     filters = args.filters
     dbroot = args.dbroot
     nights_off = args.nights_off
+    nights_delayed = args.nights_delayed
 
     nside = 32
     per_night = True  # Dither DDF per night
@@ -455,7 +457,7 @@ if __name__ == "__main__":
         fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
     else:
         fileroot = dbroot + '_'
-    file_end = 'nightsoff%i_' % nights_off + 'v2.0_'
+    file_end = 'nightsoff%i_' % nights_off + 'delayed%i_' % nights_delayed + 'v2.0_'
 
     if filters is None:
         sm = Sky_area_generator(nside=nside)
@@ -499,7 +501,8 @@ if __name__ == "__main__":
 
     night_pattern = [True] + [False]*nights_off
 
-    long_gaps = gen_long_gaps_survey(nside=nside, footprints=footprints, night_pattern=night_pattern)
+    long_gaps = gen_long_gaps_survey(nside=nside, footprints=footprints,
+                                     night_pattern=night_pattern, nights_delayed=nights_delayed)
 
     if args.same_pairs:
         filters_blobs = ['u', 'g', 'r', 'i', 'z', 'y']
