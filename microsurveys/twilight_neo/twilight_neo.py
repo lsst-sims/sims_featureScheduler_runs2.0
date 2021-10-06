@@ -468,7 +468,7 @@ def generate_twilight_neo(nside, night_pattern=None, nexp=1, exptime=1, camera_r
                                    survey_note=survey_name, ignore_obs=['DD', 'greedy', 'blob'], dither=True,
                                    nexp=nexp, detailers=detailer_list, az_range=180., twilight_scale=False,
                                    area_required=area_required))
-        return surveys
+    return surveys
 
 
 if __name__ == "__main__":
@@ -596,7 +596,7 @@ if __name__ == "__main__":
                                        footprints=footprints,
                                        wfd_footprint=wfd_footprint,
                                        repeat_night_weight=repeat_night_weight)
-    surveys = [ddfs, blobs, neo, twi_blobs, greedy]
+    surveys = [ddfs, blobs, neo, greedy]
     run_sched(surveys, survey_length=survey_length, verbose=verbose,
               fileroot=os.path.join(outDir, fileroot+file_end), extra_info=extra_info,
               nside=nside, illum_limit=illum_limit)
