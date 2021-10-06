@@ -596,7 +596,7 @@ if __name__ == "__main__":
                                        footprints=footprints,
                                        wfd_footprint=wfd_footprint,
                                        repeat_night_weight=repeat_night_weight)
-    surveys = [ddfs, blobs, neo, greedy]
+    surveys = [ddfs, blobs, neo, twi_blobs, greedy]
     run_sched(surveys, survey_length=survey_length, verbose=verbose,
               fileroot=os.path.join(outDir, fileroot+file_end), extra_info=extra_info,
               nside=nside, illum_limit=illum_limit)
