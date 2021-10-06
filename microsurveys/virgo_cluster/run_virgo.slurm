@@ -33,7 +33,7 @@
 
 ## Specify the working directory for this job
 
-#SBATCH --chdir=/gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/baseline
+#SBATCH --chdir=/gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/microsurveys/virgo_cluster
 
 ##turn on e-mail notification
 
@@ -49,7 +49,7 @@
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate rubin
 
-cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/baseline
+cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/microsurveys/virgo_cluster
 
 ## run all the baseline commands in parallel
 module load parallel-20170722

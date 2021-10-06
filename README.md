@@ -49,9 +49,9 @@ long_u2:  Increase u-band to 50s, decrease the number of exposures so total u-ex
 
 Does intensive observations of carina nebula for 1 week each year.
 
-## short_exp
+## local_gals
 
-Takes 5 second exoposures in all filters in year 1.
+Observing deeper on 10 nearby galaxies. Increases the g,r,i visits. Tried increasing the number of visits at three levels (50% more g, 100% more g, and 150% more g) with smaller increases in the other filters.  Note that the cadence note used minion_1016 as a reference point, so they were a bit optimistic on what the base coadded depths would be. May not be as feasible with the mroe realistic weather we have now.
 
 ## multi_short
 
@@ -61,9 +61,18 @@ Takes sequences of 4 5-second exposures. Shoots for 12 total short exposures per
 
 Add a northern extension to the footprint. Probably just to have image templates to chace ToOs anywhere on the sky.
 
-## local_gal
+## short_exp
 
-Taking extra g,r,i images around 10 nearby galaxies. Ran a few different boosts around the galaxies. Note that the cadence note used minion_1016 as a reference point, so they were a bit optimistic on what the base coadded depths would be. May not be as feasible with the mroe realistic weather we have now.
+Takes 5 second exoposures in all filters in year 1. 
+
+## twilight_neo
+
+Using twilight time for short exposure NEO search. 
+
+## virgo_cluster
+
+Added the virgo galaxy cluster to the WFD area. This might be a no-brainer add, looks low impact.
+
 
 # noroll
 
@@ -83,6 +92,12 @@ baseline_retrofoot_v2.0_10yrs.db:  The v2.0 baseline settings, but with the clas
 # rolling
 
 Rolling cadences with half, or third of the sky. Trying 0.5 or 0.9 rolling strength.
+
+
+# rolling_all_sky
+
+Doing rolling in the WFD, splitting the bulge in half and rolling, and rolling in the dusty plane. Probably needs a slightly more sophisticated way of splitting the dusty region (now it's splitting by area and not integrated etendue like it porbably should be), but it's few enough visits that it's not a major impact.
+
 
 # rolling_six
 
