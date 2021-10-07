@@ -1,0 +1,1 @@
+Running 6-bands of rolling in the bulge. To do this, we're going to remove the bulge from the primary footprint object and just run it as it's own survey object without trying to take pairs. Probably need to estimate how many pointings are in a band and limit it to that.

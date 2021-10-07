@@ -251,7 +251,7 @@ def generate_twi_blobs(nside, nexp=2, exptime=30., filter1s=['r', 'i', 'z', 'y']
                        shadow_minutes=60., max_alt=76., moon_distance=30., ignore_obs=['DD', 'twilight_neo'],
                        m5_weight=6., footprint_weight=1.5, slewtime_weight=3.,
                        stayfilter_weight=3., template_weight=12., footprints=None, repeat_night_weight=None,
-                       wfd_footprint=None):
+                       wfd_footprint=None, night_pattern=[True]):
     """
     Generate surveys that take observations in blobs.
 
@@ -371,6 +371,8 @@ def generate_twi_blobs(nside, nexp=2, exptime=30., filter1s=['r', 'i', 'z', 'y']
             time_needed = times_needed[1]
         bfs.append((bf.Time_to_twilight_basis_function(time_needed=time_needed, alt_limit=12), 0.))
         bfs.append((bf.Planet_mask_basis_function(nside=nside), 0.))
+        # Turn off twilight blobs on the nights when neo is going
+        bfs.append((bf.Night_modulo_basis_function(pattern=night_pattern), 0))
 
         # unpack the basis functions and weights
         weights = [val[1] for val in bfs]
@@ -563,6 +565,7 @@ if __name__ == "__main__":
                     7: [True, True, False, False, False, False]}
 
     night_pattern = pattern_dict[night_pattern]
+    reverse_night_pattern = [not val for val in night_pattern]
 
     # Set up the DDF surveys to dither
     u_detailer = detailers.Filter_nexp(filtername='u', nexp=1)
@@ -589,14 +592,16 @@ if __name__ == "__main__":
                                        wfd_footprint=wfd_footprint,
                                        repeat_night_weight=repeat_night_weight,
                                        filter1s=filters_twi,
-                                       filter2s=filters_twi)
+                                       filter2s=filters_twi,
+                                       night_pattern=reverse_night_pattern)
     else:
         blobs = generate_blobs(nside, nexp=nexp, footprints=footprints)
         twi_blobs = generate_twi_blobs(nside, nexp=nexp,
                                        footprints=footprints,
                                        wfd_footprint=wfd_footprint,
-                                       repeat_night_weight=repeat_night_weight)
-    surveys = [ddfs, blobs, neo, twi_blobs, greedy]
+                                       repeat_night_weight=repeat_night_weight,
+                                       night_pattern=reverse_night_pattern)
+    surveys = [ddfs, blobs, twi_blobs, neo, greedy]
     run_sched(surveys, survey_length=survey_length, verbose=verbose,
               fileroot=os.path.join(outDir, fileroot+file_end), extra_info=extra_info,
               nside=nside, illum_limit=illum_limit)
