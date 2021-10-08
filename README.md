@@ -98,18 +98,22 @@ Rolling cadences with half, or third of the sky. Trying 0.5 or 0.9 rolling stren
 
 Doing rolling in the WFD, splitting the bulge in half and rolling, and rolling in the dusty plane. Probably needs a slightly more sophisticated way of splitting the dusty region (now it's splitting by area and not integrated etendue like it porbably should be), but it's few enough visits that it's not a major impact.
 
+# rolling_bulge_6
 
-# rolling_six
+The standard baseline rolling in the WFD, and now the bulge is divided into 6 stripes which roll. During the non-rolling time, the bulge is observed like the baseline (I think). Once rolling starts, the bulge area is so small it is not feasible to do repeated contiguous regions, so the bulge observations are not paired. 
 
-Rolling cadences where 1/6th of the sky is on for any season. 0.5 or 0.9 rolling strength.
 
 # rolling bulge
 
-Like the baseline, but split the MW bulge in half and roll there as well. The SCOC requested a 6-stripe bulge rolling, but that's not going to be difficult to work with pairs. 
+Like the baseline, but split the MW bulge in half and roll there as well. 
 
 # roll_early
 
 Similar to the baseline, but begin rolling earlier so an additional season of rolling gets completed. 
+
+# rolling_six
+
+Rolling cadences where 1/6th of the sky is on for any season. 0.5 or 0.9 rolling strength.
 
 # vary_gp
 
