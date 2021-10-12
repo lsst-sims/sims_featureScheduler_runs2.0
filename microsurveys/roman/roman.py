@@ -11,50 +11,112 @@ import rubin_sim.scheduler.basis_functions as bf
 from rubin_sim.scheduler.surveys import (Greedy_survey, generate_dd_surveys,
                                          Blob_survey, Deep_drilling_survey)
 from rubin_sim.scheduler import sim_runner
-from rubin_sim.scheduler.detailers import Dither_detailer
 import rubin_sim.scheduler.detailers as detailers
 import sys
 import subprocess
 import os
 import argparse
+from rubin_sim.scheduler.detailers import Dither_detailer
+import rubin_sim.scheduler.detailers as detailers
 
 
-class Night_limit_basis_function(bf.Base_basis_function):
-    def __init__(self, nights=[]):
+class In_season_basis_function(bf.Base_basis_function):
+    """Only let a survey go if it is in a defined season
+    """
+    def __init__(self, seasons=[]):
         super().__init__()
-        self.nights = nights
+        self.seasons = seasons
 
     def check_feasibility(self, conditions):
-        if conditions.night in self.nights:
-            return True
-        else:
-            return False
+        result = False
+        for season_range in self.seasons:
+            if np.min(season_range) <= conditions.mjd <= np.max(season_range):
+                result = True
+        return result
 
 
-def gen_smc_survey(nside=32, nights=[368, 369], n_sequence=20, camera_ddf_rot_limit = 75.):
-    """Generate a survey object that will take tons of observations of the SMC.
+def roman_info():
+    """Manually enter some Roman RGES info.
     """
-    # XXX--gather up magic numbers and document
+    # From the TVS Slack channel:
+    # spring 2027, fall 2027, spring 2028, then fall 2030, spring 2031, fall 2031
 
-    # rough location of the SMC
-    RA = 13.187
-    dec = -72.828
+    result = {}
+    result['RA'] = 268.708
+    result['dec'] = -28.975
+
+    # Guessing these from the notebook in same dir. 
+    observing_season_mid_mjds = [61575.3, 61944.297, 62324.81, 62676.13, 63067.62, 63437.0]
+
+    result['seaons_on'] = [[val-32, val+32] for val in observing_season_mid_mjds]
+
+    result['seasons_off'] = []
+    for i in range(len(result['seaons_on'])-1):
+        result['seasons_off'].append([result['seaons_on'][i][1]+1, result['seaons_on'][i+1][0]-1])
+
+    return result
+
+
+def gen_roman_on_season(nside=32, camera_ddf_rot_limit=75.):
+
+    field_info = roman_info()
+
+    RA = field_info['RA']
+    dec = field_info['dec']
+
+    survey_name = 'DD: RGES_onseason'
 
     # Add some feasability basis functions. Maybe just give it a set of nights where it can execute for now.
-    basis_functions = [Night_limit_basis_function(nights=nights)]
+    basis_functions = []
+    # These are crude hard limits. Nominally we would try to pre-schedule these
+    # when they would be at the best airamss in the night.
     basis_functions.append(bf.Hour_Angle_limit_basis_function(RA=RA, ha_limits=[[20, 24], [0, 4]]))
     basis_functions.append(bf.Not_twilight_basis_function())
+    # Force it to delay 30 minutes
+    basis_functions.append(bf.Force_delay_basis_function(days_delay=30./24., survey_name=survey_name))
+    # Force it to be in a given observing season
+    basis_functions.append(In_season_basis_function(seasons=field_info['seaons_on']))
 
     # Add a dither detailer, so it dithers between each set of exposures I guess?
     details = [] 
-    details.append(Dither_detailer(max_dither=0.5, seed=42, per_night=False))
+    details.append(Dither_detailer(max_dither=0.5, seed=42, per_night=True))
     details.append(detailers.Camera_rot_detailer(min_rot=-camera_ddf_rot_limit, max_rot=camera_ddf_rot_limit))
-    
 
-    survey = Deep_drilling_survey(basis_functions, RA=RA, dec=dec, sequence='g', nvis=[n_sequence],
-                                  exptime=15, nexp=1,
-                                  survey_name='DD: SMC', detailers=details)
+    survey = Deep_drilling_survey(basis_functions, RA=RA, dec=dec, sequence='giriz',
+                                  nvis=[1, 1, 1, 1, 1], exptime=30, nexp=2,
+                                  survey_name=survey_name, detailers=details)
+    return survey
 
+
+def gen_roman_off_season(nside=32, camera_ddf_rot_limit=75.):
+    """Generate a ddf-like survey object to observe the roman field every ~3 days in the off-season
+    """
+
+    field_info = roman_info()
+    RA = field_info['RA']
+    dec = field_info['dec']
+
+    survey_name = 'DD: RGES_offseason'
+
+    # Add some feasability basis functions. Maybe just give it a set of nights where it can execute for now.
+    basis_functions = []
+    # These are crude hard limits. Nominally we would try to pre-schedule these
+    # when they would be at the best airamss in the night.
+    basis_functions.append(bf.Hour_Angle_limit_basis_function(RA=RA, ha_limits=[[20, 24], [0, 4]]))
+    basis_functions.append(bf.Not_twilight_basis_function())
+    # Force it to not go every day
+    basis_functions.append(bf.Force_delay_basis_function(days_delay=3., survey_name=survey_name))
+    # Force it to be in a given observing season
+    basis_functions.append(In_season_basis_function(seasons=field_info['seasons_off']))
+
+    # Add a dither detailer, so it dithers between each set of exposures I guess?
+    details = [] 
+    details.append(Dither_detailer(max_dither=0.5, seed=42, per_night=True))
+    details.append(detailers.Camera_rot_detailer(min_rot=-camera_ddf_rot_limit, max_rot=camera_ddf_rot_limit))
+
+    survey = Deep_drilling_survey(basis_functions, RA=RA, dec=dec, sequence='griz',
+                                  nvis=[1, 1, 1, 1], exptime=30, nexp=2,
+                                  survey_name=survey_name, detailers=details)
     return survey
 
 
@@ -533,7 +595,8 @@ if __name__ == "__main__":
     ddfs = generate_dd_surveys(nside=nside, nexp=nexp, detailers=details, euclid_detailers=euclid_detailers)
 
     greedy = gen_greedy_surveys(nside, nexp=nexp, footprints=footprints)
-    smc_survey = [gen_smc_survey()]
+
+    roman_surveys = [gen_roman_on_season(), gen_roman_off_season()]
 
     if args.same_pairs:
         filters_blobs = ['u', 'g', 'r', 'i', 'z', 'y']
@@ -554,7 +617,7 @@ if __name__ == "__main__":
                                        footprints=footprints,
                                        wfd_footprint=wfd_footprint,
                                        repeat_night_weight=repeat_night_weight)
-    surveys = [smc_survey, ddfs, blobs, twi_blobs, greedy]
+    surveys = [roman_surveys, ddfs, blobs, twi_blobs, greedy]
     run_sched(surveys, survey_length=survey_length, verbose=verbose,
               fileroot=os.path.join(outDir, fileroot+file_end), extra_info=extra_info,
               nside=nside, illum_limit=illum_limit)
