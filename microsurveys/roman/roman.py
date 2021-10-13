@@ -18,6 +18,7 @@ import os
 import argparse
 from rubin_sim.scheduler.detailers import Dither_detailer
 import rubin_sim.scheduler.detailers as detailers
+from rubin_sim.utils import _angularSeparation, raDec2Hpid
 
 
 class In_season_basis_function(bf.Base_basis_function):
@@ -32,6 +33,39 @@ class In_season_basis_function(bf.Base_basis_function):
         for season_range in self.seasons:
             if np.min(season_range) <= conditions.mjd <= np.max(season_range):
                 result = True
+        return result
+
+
+class Airmass_point_range(bf.Base_basis_function):
+    """set an airmass limit for a single point
+    """
+    def __init__(self, ra, dec, airmass_range=[1.05, 2.7], nside=32):
+        super().__init__()
+        self.hpid = raDec2Hpid(nside, ra, dec)
+        self.airmass_range = airmass_range
+
+    def check_feasibility(self, conditions):
+        result = False
+        airmass = conditions.airmass[self.hpid]
+        if (np.min(self.airmass_range) <= airmass) & (airmass <= np.max(self.airmass_range)):
+            result = True
+        return result
+
+
+class MoonDist_point_range(bf.Base_basis_function):
+    """set an airmass limit for a single point
+    """
+    def __init__(self, ra, dec, moon_limit=15.):
+        super().__init__()
+        self.ra = np.radians(ra)
+        self.dec = np.radians(dec)
+        self.moon_limit = np.radians(moon_limit)
+
+    def check_feasibility(self, conditions):
+        result = False
+        moon_dist = _angularSeparation(self.ra, self.dec, conditions.moonRA, conditions.moonDec)
+        if moon_dist > self.moon_limit:
+            result = True
         return result
 
 
@@ -76,6 +110,8 @@ def gen_roman_on_season(nside=32, camera_ddf_rot_limit=75.):
     basis_functions.append(bf.Force_delay_basis_function(days_delay=30./24., survey_name=survey_name))
     # Force it to be in a given observing season
     basis_functions.append(In_season_basis_function(seasons=field_info['seaons_on']))
+    basis_functions.append(MoonDist_point_range(RA, dec))
+    basis_functions.append(Airmass_point_range(RA, dec, nside=nside))
 
     # Add a dither detailer, so it dithers between each set of exposures I guess?
     details = [] 
@@ -108,6 +144,8 @@ def gen_roman_off_season(nside=32, camera_ddf_rot_limit=75.):
     basis_functions.append(bf.Force_delay_basis_function(days_delay=3., survey_name=survey_name))
     # Force it to be in a given observing season
     basis_functions.append(In_season_basis_function(seasons=field_info['seasons_off']))
+    basis_functions.append(MoonDist_point_range(RA, dec))
+    basis_functions.append(Airmass_point_range(RA, dec, nside=nside))
 
     # Add a dither detailer, so it dithers between each set of exposures I guess?
     details = [] 
