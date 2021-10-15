@@ -12,16 +12,14 @@ from rubin_sim.scheduler.surveys import (Greedy_survey, generate_dd_surveys,
                                          Blob_survey, ToO_survey, ToO_master)
 from rubin_sim.scheduler import sim_runner
 import rubin_sim.scheduler.detailers as detailers
-from rubin_sim.utils import _hpid2RaDec, _angularSeparation
+from rubin_sim.utils import _hpid2RaDec, _angularSeparation, _raDec2Hpid
 import sys
 import subprocess
 import os
 import argparse
-from rubin_sim.scheduler.utils import (hp_in_lsst_fov, read_fields, hp_in_comcam_fov,
+from rubin_sim.scheduler.utils import (read_fields,
                                        comcamTessellate, gnomonic_project_toxy, tsp_convex)
 from rubin_sim.scheduler.surveys import Scripted_survey, BaseMarkovDF_survey
-from rubin_sim.scheduler.thomson import xyz2thetaphi, thetaphi2xyz
-
 
 
 def mean_longitude(longitude):
@@ -39,7 +37,7 @@ def mean_longitude(longitude):
     return mid_longitude
 
 
-# XXX--should move this to utils generally and refactor it out of base Markov
+# XXX--should move this to utils generally and refactor it out of base MarkovSurvey
 def order_observations(RA, dec):
     """
     Take a list of ra,dec positions and compute a traveling salesman solution through them
@@ -71,7 +69,7 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
 
     """
     def __init__(self, basis_functions, followup_footprint=None, nside=32, reward_val=1e6, times=[0, 1, 2, 4, 8],
-                 sequence='ugrizy', exptimes=[30.]*6, camera='LSST', nexp=2, survey_name='ToO'):
+                 sequence='ugrizy', exptimes=[30.]*6, camera='LSST', nexp=2, survey_name='ToO', flushtime=2.):
         # Figure out what else I need to super here
 
         self.basis_functions = basis_functions
@@ -83,6 +81,8 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
         self.sequence = sequence
         self.exptimes = exptimes
         self.nexp = nexp
+        self.nside = nside
+        self.flushtime = flushtime/24.
 
         self.camera = camera
         # Load the OpSim field tesselation and map healpix to fields
@@ -96,38 +96,66 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
         self.hp2fields = np.array([])
         self._hp2fieldsetup(self.fields['RA'], self.fields['dec'])
 
+        self.clear_script()
+
     def _new_event(self, target_o_o):
         """A new ToO event, generate any observations for followup
         """
 
         # Check that the event center is in the footprint we want to observe
-        hpid_center = _hpid2RaDec(self.nside, target_o_o.ra_rad, target_o_o.dec_rad)
+        hpid_center = _raDec2Hpid(self.nside, target_o_o.ra_rad_center, target_o_o.dec_rad_center)
         if self.followup_footprint[hpid_center] > 0:
             target_area = self.followup_footprint * target_o_o.footprint
             # generate a list of pointings for that area
             hpid_to_observe = np.where(target_area > 0)[0]
+
+            # XXX--Check if we should spin the tesselation for the night.
+
+
             field_ids = np.unique(self.hp2fields[hpid_to_observe])
 
             # Put the fields in a good order. Skipping dither positions for now.
             better_order = order_observations(self.fields['RA'][field_ids],
-                                              self.fields['dec'][field_ids], conditions)
+                                              self.fields['dec'][field_ids])
             ras = self.fields['RA'][field_ids[better_order]]
             decs = self.fields['dec'][field_ids[better_order]]
 
             import pdb ; pdb.set_trace()
-            #for time_offset in self.times_wanted+pad:
-                #
 
-        # Nothing to return, just need to update the self.obs_wanted,self.mjd_start, self.scheduled_obs
+            # Figure out an MJD start time for the object if it's not visible now
+
+            obs_list = []
+            for time in self.times:
+                for filtername, exptime in zip(self.sequece, self.exptimes):
+                    if filtername in conditions.mounted_filters:
+                        obs = scheduled_observation(ras.size)
+                        obs['RA'] = ras
+                        obs['dec'] = decs
+                        obs['filter'] = filtername
+                        obs['mjd'] = mjd0 + time
+                        obs['flush_by_mjd'] = mjd0 + time + self.flushtime
+
+                        obs['note'] = self.survey_name + ', %i' % target_o_o.id
+
+                        obs_list.append(obs)
+
+
+                    #['ID', 'RA', 'dec', 'mjd', 'flush_by_mjd', 'exptime', 'filter', 'rotSkyPos', 'nexp',
+             #'note'] ['mjd_tol', 'dist_tol', 'alt_min', 'alt_max', 'HA_max', 'HA_min', 'observed']
+
+            observations = np.concatenate(obs_list)
+            if self.obs_wanted is not None:
+                if np.size(self.obs_wanted) > 0:
+                    observations = np.concatenate([self.obs_wanted, observations])
+            self.set_script(observations)
 
     def calc_reward_function(self, conditions):
         """If there is an observation ready to go, execute it, otherwise, -inf
         """
-
         # check if any new event has come in
         if conditions.targets_of_opportunity is not None:
             for target_o_o in conditions.targets_of_opportunity:
-                if target_o_o.id > self.last_event:
+                if target_o_o.id > self.last_event_id:
                     self._new_event(target_o_o)
                     self.last_event_id = target_o_o.id
 
@@ -137,8 +165,6 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
         else:
             self.reward = self.reward_val
         return self.reward
-
-
 
 
 def gen_greedy_surveys(nside=32, nexp=2, exptime=30., filters=['r', 'i', 'z', 'y'],
@@ -527,7 +553,7 @@ def run_sched(surveys, observatory, survey_length=365.25, nside=32, fileroot='ba
                                                       event_table=event_table)
 
 
-def generate_events(nside=32, mjd_start=59853.5, radius=15., survey_length=365.25*10,
+def generate_events(nside=32, mjd_start=59853.5, radius=6.5, survey_length=365.25*10,
                     rate=10., expires=3., seed=42):
     """
     Parameters
@@ -556,7 +582,8 @@ def generate_events(nside=32, mjd_start=59853.5, radius=15., survey_length=365.2
         good = np.where(dist <= radius)
         footprint = np.zeros(ra.size, dtype=float)
         footprint[good] = 1
-        events.append(TargetoO(i, footprint, event_time, expires))
+        events.append(TargetoO(i, footprint, event_time, expires,
+                               ra_rad_center=event_table['ra'][i], dec_rad_center=event_table['dec'][i]))
     events = Sim_targetoO_server(events)
     return events, event_table
 
