@@ -17,3 +17,7 @@ Maybe we can make a survey object that looks for new events, then generates scri
 Currently using circles with 74 sq deg size as the default. 
 That takes ~22 pointings to cover. At 30s per exposure and filter swap, that's be ~15 min per filter. So, 75 minutes for the alert. And that is not taking additional dither positions. We could do something like 3 dither positions in r, then just 1 in the other filters. Then we're up to 105 minutes. This does make it tougher if we want log-spacing with the second observation 1 hour later. 
 
+It's tough to automate the ToO followup. There can be filter thrashing if things are below the airmass limit. As is often the case, scheduling the sequence of followup would be better done with integer programming (or just manually).
+
+This implementation of a followup code should only be considered a strawman for simulation purposes. Something more sophisticated is needed for production.
+

@@ -5,20 +5,20 @@ import matplotlib.pylab as plt
 import healpy as hp
 from rubin_sim.scheduler.modelObservatory import Model_observatory
 from rubin_sim.scheduler.schedulers import Core_scheduler, simple_filter_sched
-from rubin_sim.scheduler.utils import (Sky_area_generator,
-                                       make_rolling_footprints, TargetoO, Sim_targetoO_server)
+from rubin_sim.scheduler.utils import (Sky_area_generator, scheduled_observation,
+                                       make_rolling_footprints, TargetoO, Sim_targetoO_server,
+                                       read_fields,
+                                       comcamTessellate, gnomonic_project_toxy, tsp_convex)
 import rubin_sim.scheduler.basis_functions as bf
 from rubin_sim.scheduler.surveys import (Greedy_survey, generate_dd_surveys,
                                          Blob_survey, ToO_survey, ToO_master)
 from rubin_sim.scheduler import sim_runner
 import rubin_sim.scheduler.detailers as detailers
-from rubin_sim.utils import _hpid2RaDec, _angularSeparation, _raDec2Hpid
+from rubin_sim.utils import _hpid2RaDec, _angularSeparation, _approx_RaDec2AltAz, _raDec2Hpid
 import sys
 import subprocess
 import os
 import argparse
-from rubin_sim.scheduler.utils import (read_fields,
-                                       comcamTessellate, gnomonic_project_toxy, tsp_convex)
 from rubin_sim.scheduler.surveys import Scripted_survey, BaseMarkovDF_survey
 
 
@@ -69,20 +69,35 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
 
     """
     def __init__(self, basis_functions, followup_footprint=None, nside=32, reward_val=1e6, times=[0, 1, 2, 4, 8],
-                 sequence='ugrizy', exptimes=[30.]*6, camera='LSST', nexp=2, survey_name='ToO', flushtime=2.):
+                 sequence='ugrizy', exptimes=[30.]*6, nexp=[1, 2, 2, 2, 2, 2], camera='LSST',
+                 survey_name='ToO', flushtime=2., mjd_tol=2./24., dist_tol=0.5,
+                 alt_min=20., alt_max=85., HA_min=19, HA_max=5, ignore_obs='dummy', dither=True,
+                 seed=42, npositions=7305):
         # Figure out what else I need to super here
 
         self.basis_functions = basis_functions
         self.survey_name = survey_name
         self.followup_footprint = followup_footprint
         self.last_event_id = -1
+        self.night = -1
         self.reward_val = reward_val
-        self.times_wanted = np.array(times)/24.  # to days
+        self.times = np.array(times)/24.  # to days
         self.sequence = sequence
         self.exptimes = exptimes
-        self.nexp = nexp
+        self.nexp_list = nexp
         self.nside = nside
         self.flushtime = flushtime/24.
+        self.mjd_tol = mjd_tol
+        self.dist_tol = np.radians(dist_tol)
+        self.alt_min = np.radians(alt_min)
+        self.alt_max = np.radians(alt_max)
+        self.HA_min = HA_min
+        self.HA_max = HA_max
+        self.ignore_obs = ignore_obs
+        self.extra_features = {}
+        self.extra_basis_functions = {}
+        self.detailers = []
+        self.dither = dither
 
         self.camera = camera
         # Load the OpSim field tesselation and map healpix to fields
@@ -96,11 +111,63 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
         self.hp2fields = np.array([])
         self._hp2fieldsetup(self.fields['RA'], self.fields['dec'])
 
+        # Initialize the list of scripted observations
         self.clear_script()
 
-    def _new_event(self, target_o_o):
+        # Generate and store rotation positions to use.
+        # This way, if different survey objects are seeded the same, they will
+        # use the same dither positions each night
+        rng = np.random.default_rng(seed)
+        self.lon = rng.random(npositions)*np.pi*2
+        # Make sure latitude points spread correctly
+        # http://mathworld.wolfram.com/SpherePointPicking.html
+        self.lat = np.arccos(2.*rng.random(npositions) - 1.)
+        self.lon2 = rng.random(npositions)*np.pi*2
+
+    def _check_list(self, conditions):
+        """Check to see if the current mjd is good
+        """
+        observation = None
+        if self.obs_wanted is not None:
+            # Scheduled observations that are in the right time window and have not been executed
+            in_time_window = np.where((self.mjd_start < conditions.mjd) &
+                                      (self.obs_wanted['flush_by_mjd'] > conditions.mjd) &
+                                      (~self.obs_wanted['observed']))[0]
+
+            if np.size(in_time_window) > 0:
+                pass_checks = self._check_alts_HA(self.obs_wanted[in_time_window], conditions)
+                matches = in_time_window[pass_checks]
+            else:
+                matches = []
+
+            if np.size(matches) > 0:
+                # If we have something in the current filter, do that, otherwise whatever is first
+                in_filt = np.where(self.obs_wanted[matches]['filter'] == conditions.current_filter)[0]
+                if np.size(in_filt) > 0:
+                    indx = matches[in_filt[0]]
+                else:
+                    indx = matches[0]
+                observation = self._slice2obs(self.obs_wanted[indx])
+                
+        return observation
+
+    def flush_script(self, conditions):
+        """Remove things from the script that aren't needed anymore
+        """
+        if self.obs_wanted is not None:
+            still_relevant = np.where((self.obs_wanted['observed'] == False) 
+                                      & (self.obs_wanted['flush_by_mjd'] < conditions.mjd))[0]
+            if np.size(still_relevant) > 0:
+                observations = self.obs_wanted[still_relevant]
+                self.set_script(observations)
+            else:
+                self.clear_script()
+
+    def _new_event(self, target_o_o, conditions):
         """A new ToO event, generate any observations for followup
         """
+        # flush out any old observations or ones that have been completed
+        self.flush_script(conditions)
 
         # Check that the event center is in the footprint we want to observe
         hpid_center = _raDec2Hpid(self.nside, target_o_o.ra_rad_center, target_o_o.dec_rad_center)
@@ -109,8 +176,10 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
             # generate a list of pointings for that area
             hpid_to_observe = np.where(target_area > 0)[0]
 
-            # XXX--Check if we should spin the tesselation for the night.
-
+            # Check if we should spin the tesselation for the night.
+            if self.dither & (conditions.night != self.night):
+                self._spin_fields(conditions)
+                self.night = conditions.night.copy()
 
             field_ids = np.unique(self.hp2fields[hpid_to_observe])
 
@@ -120,28 +189,42 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
             ras = self.fields['RA'][field_ids[better_order]]
             decs = self.fields['dec'][field_ids[better_order]]
 
-            import pdb ; pdb.set_trace()
+            # Figure out an MJD start time for the object if it is still rising and low.
+            alt, az = _approx_RaDec2AltAz(target_o_o.ra_rad_center, target_o_o.dec_rad_center,
+                                          conditions.site.latitude_rad, None,
+                                          conditions.mjd,
+                                          lmst=conditions.lmst)
+            HA = conditions.lmst - target_o_o.ra_rad_center*12./np.pi
 
-            # Figure out an MJD start time for the object if it's not visible now
+            if (HA < self.HA_max) & (HA > self.HA_min):
+                t_to_rise = (self.HA_max - HA)/24.
+                mjd0 = conditions.mjd + t_to_rise
+            else:
+                mjd0 = conditions.mjd + 0.
 
             obs_list = []
             for time in self.times:
-                for filtername, exptime in zip(self.sequece, self.exptimes):
+                for filtername, exptime, nexp in zip(self.sequence, self.exptimes, self.nexp_list):
                     if filtername in conditions.mounted_filters:
                         obs = scheduled_observation(ras.size)
                         obs['RA'] = ras
                         obs['dec'] = decs
-                        obs['filter'] = filtername
                         obs['mjd'] = mjd0 + time
                         obs['flush_by_mjd'] = mjd0 + time + self.flushtime
+                        obs['exptime'] = exptime
+                        obs['nexp'] = nexp
+                        obs['filter'] = filtername
+                        obs['rotSkyPos'] = 0  # XXX--maybe throw a rotation detailer in here
+                        obs['mjd_tol'] = self.mjd_tol
+                        obs['dist_tol'] = self.dist_tol
+                        obs['alt_min'] = self.alt_min
+                        obs['alt_max'] = self.alt_max
+                        obs['HA_max'] = self.HA_max
+                        obs['HA_min'] = self.HA_min
 
-                        obs['note'] = self.survey_name + ', %i' % target_o_o.id
+                        obs['note'] = self.survey_name + ', %i_t%i' % (target_o_o.id, time*24)
 
                         obs_list.append(obs)
-
-
-                    #['ID', 'RA', 'dec', 'mjd', 'flush_by_mjd', 'exptime', 'filter', 'rotSkyPos', 'nexp',
-             #'note'] ['mjd_tol', 'dist_tol', 'alt_min', 'alt_max', 'HA_max', 'HA_min', 'observed']
 
             observations = np.concatenate(obs_list)
             if self.obs_wanted is not None:
@@ -153,10 +236,11 @@ class ToO_scripted_survey(Scripted_survey, BaseMarkovDF_survey):
         """If there is an observation ready to go, execute it, otherwise, -inf
         """
         # check if any new event has come in
+
         if conditions.targets_of_opportunity is not None:
             for target_o_o in conditions.targets_of_opportunity:
                 if target_o_o.id > self.last_event_id:
-                    self._new_event(target_o_o)
+                    self._new_event(target_o_o, conditions)
                     self.last_event_id = target_o_o.id
 
         observation = self._check_list(conditions)
@@ -555,9 +639,14 @@ def run_sched(surveys, observatory, survey_length=365.25, nside=32, fileroot='ba
 
 def generate_events(nside=32, mjd_start=59853.5, radius=6.5, survey_length=365.25*10,
                     rate=10., expires=3., seed=42):
-    """
+    """Generate a bunch of ToO events
+
     Parameters
     ----------
+    rate : float (10)
+        The number of events per year.
+    expires : float (3)
+        How long to keep broadcasting events as relevant (days)
     """
 
     np.random.seed(seed=seed)
@@ -603,7 +692,7 @@ if __name__ == "__main__":
     parser.add_argument("--dbroot", type=str)
     parser.add_argument('--filters', help="filter distribution (default: u 0.07 g 0.09 r 0.22 i 0.22 z 0.20 y 0.20)")
     parser.add_argument("--same_pairs", action="store_true", default=False)
-    parser.add_argument("--too_rate", type=float, default=10)
+    parser.add_argument("--too_rate", type=float, default=10, help="N events per year")
 
     args = parser.parse_args()
     survey_length = args.survey_length  # Days
@@ -692,7 +781,7 @@ if __name__ == "__main__":
 
     greedy = gen_greedy_surveys(nside, nexp=nexp, footprints=footprints)
 
-    toos = [ToO_scripted_survey([], nside=nside, nexp=nexp, followup_footprint=too_footprint)]
+    toos = [ToO_scripted_survey([], nside=nside, followup_footprint=too_footprint)]
 
     if args.same_pairs:
         filters_blobs = ['u', 'g', 'r', 'i', 'z', 'y']
