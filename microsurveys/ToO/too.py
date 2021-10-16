@@ -732,7 +732,7 @@ if __name__ == "__main__":
         fileroot = os.path.basename(sys.argv[0]).replace('.py', '') + '_'
     else:
         fileroot = dbroot + '_'
-    file_end = 'v2.0_'
+    file_end = 'rate%i_' % too_rate + 'v2.0_'
 
     if filters is None:
         sm = Sky_area_generator(nside=nside)
