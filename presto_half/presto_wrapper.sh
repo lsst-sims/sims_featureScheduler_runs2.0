@@ -6,4 +6,4 @@ conda activate rubin
 
 root_dir="/scratch/yoachim/git_repos/sims_featureScheduler_runs2.0/presto_half/"
 
-python ${root_dir}presto_half.py --outDir ${root_dir} --long_gap $1 --survey_length 10
+python ${root_dir}presto_half.py --outDir ${root_dir} --long_gap $1 
