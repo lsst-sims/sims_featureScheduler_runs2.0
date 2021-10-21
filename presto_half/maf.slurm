@@ -7,4 +7,4 @@
 #SBATCH -J presto_half_maf
 #SBATCH --ntasks-per-node=20
 
-srun --output presto_half.out --ntasks=10 --multi-prog presto_cmds.conf
+srun --output maf.out --ntasks=10 --multi-prog maf_cmds.conf
