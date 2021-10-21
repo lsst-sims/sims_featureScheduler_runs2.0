@@ -8,4 +8,4 @@
 #SBATCH --ntasks-per-node=2
 #SBATCH --mem=30G
 
-srun --output presto_half_makeup.out --ntasks=2 --multi-prog presto_makeup_mds.conf
+srun --output presto_half_makeup.out --ntasks=2 --multi-prog presto_makeup_cmds.conf
