@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
 #SBATCH -p normal
-#SBATCH -N 2
+#SBATCH -N 1
 #SBATCH -n 5
 #SBATCH -t 12:00:00
 #SBATCH -J presto_half_makeup
