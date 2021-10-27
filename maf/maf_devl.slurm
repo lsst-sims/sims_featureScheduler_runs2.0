@@ -6,4 +6,4 @@
 #SBATCH -J maf_all
 #SBATCH --ntasks-per-node=20
 
-srun --output maf_all.out --ntasks=127 --multi-prog maf_cmds.conf
+cat maf_cmds.sh | parallel -j 20
