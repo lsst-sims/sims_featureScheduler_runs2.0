@@ -1,0 +1,16 @@
+glance_dir --db presto_half_gap1.5_mix_v2.0_10yrs.db
+glance_dir --db presto_half_gap1.5_v2.0_10yrs.db
+glance_dir --db presto_half_gap2.0_mix_v2.0_10yrs.db
+glance_dir --db presto_half_gap2.0_v2.0_10yrs.db
+glance_dir --db presto_half_gap2.5_mix_v2.0_10yrs.db
+glance_dir --db presto_half_gap2.5_v2.0_10yrs.db
+glance_dir --db presto_half_gap3.0_mix_v2.0_10yrs.db
+glance_dir --db presto_half_gap3.0_v2.0_10yrs.db
+glance_dir --db presto_half_gap3.5_mix_v2.0_10yrs.db
+glance_dir --db presto_half_gap3.5_v2.0_10yrs.db
+glance_dir --db presto_half_gap4.0_mix_v2.0_10yrs.db
+glance_dir --db presto_half_gap4.0_v2.0_10yrs.db
+glance_dir --db too_rate10_v2.0_10yrs.db
+glance_dir --db too_rate50_v2.0_10yrs.db
+glance_dir --db roman_v2.0_10yrs.db
+glance_dir --db smc_movie_v2.0_10yrs.db
