@@ -29,7 +29,7 @@
 
 ## See above section on "Specifying memory" for choices for --mem.
 
-#SBATCH --mem=500G
+#SBATCH --mem=100G
 
 ## Specify the working directory for this job
 
