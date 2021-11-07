@@ -1,0 +1,2 @@
+# Pull things back down from NCSA to hyak:
+rsync -avzv --progress --include="*/" --include="*10yrs.db" --exclude="*" lsst-login01.ncsa.illinois.edu:"/lsstdata/user/staff/web_data/sim-data/sims_featureScheduler_runs2.0/*" .
