@@ -14,12 +14,12 @@
 
 ## Nodes
 
-#SBATCH --nodes=6
+#SBATCH --nodes=5
 #SBATCH --ntasks-per-node=20
 
 ## Walltime (hours:min:sec) Do not specify a walltime substantially more than your job needs.
 
-#SBATCH --time=144:00:00
+#SBATCH --time=10-24:00:00
 
 ## Memory per node. It is important to specify the memory since the default memory is very small.
 
