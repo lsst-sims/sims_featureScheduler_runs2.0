@@ -455,7 +455,7 @@ if __name__ == "__main__":
     sm = Sky_area_generator(nside=nside)
 
     footprints_hp_array, labels = sm.return_maps()
-    wfd_indx = np.where(labels == 'lowdust')[0]
+    wfd_indx = np.where((labels == 'lowdust') | (labels == 'LMC_SMC'))[0]
     wfd_footprint = footprints_hp_array['r']*0
     wfd_footprint[wfd_indx] = 1
 
