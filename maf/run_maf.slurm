@@ -47,7 +47,7 @@
 
 ## Set up the evironment
 source ~/anaconda3/etc/profile.d/conda.sh
-conda activate rubin
+conda activate guro
 
 cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/maf
 
