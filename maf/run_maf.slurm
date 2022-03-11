@@ -14,12 +14,12 @@
 
 ## Nodes
 
-#SBATCH --nodes=5
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=28
 
 ## Walltime (hours:min:sec) Do not specify a walltime substantially more than your job needs.
 
-#SBATCH --time=48:00:00
+#SBATCH --time=4-48:00:00
 
 ## Memory per node. It is important to specify the memory since the default memory is very small.
 
@@ -54,4 +54,4 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/maf
 ## run all the baseline commands in parallel
 module load parallel-20170722
 
-cat sci.sh | parallel -j 140
+cat sci.sh | parallel -j 112
