@@ -56,5 +56,5 @@ cd /gscratch/scrubbed/yoachim/sims_featureScheduler_runs2.0/maf2
 module load parallel-20170722
 
 
-generate_ss --pop vatira_10k
+generate_ss --pop vatiras_granvik_10k
 cat ss_script.sh  | parallel -j 20
