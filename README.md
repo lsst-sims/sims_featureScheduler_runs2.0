@@ -1,6 +1,10 @@
 # sims_featureScheduler_runs2.0
 v2.0 of the featureScheduler experiments
 
+Completed simulations can be found at: https://s3df.slac.stanford.edu/data/rubin/sim-data/sims_featureScheduler_runs3.3/
+
+Latest analysis of runs often served at:  http://astro-lsst-01.astro.washington.edu:8080/
+
 
 # Description of runs
 
